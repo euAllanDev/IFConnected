@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: ifconnected-postgres
+    environment:
+      POSTGRES_DB: ifconnected_db
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    networks:
+      - ifnet
+
+  mongo:
+    image: mongo:6.0
+    container_name: ifconnected-mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+    ports:
+      - "27017:27017"
+    networks:
+      - ifnet
+
+  redis:
+    image: redis:7-alpine
+    container_name: ifconnected-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - ifnet
+
+  minio:
+    image: minio/minio
+    container_name: ifconnected-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: miniopassword
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - ifnet
+
+networks:
+  ifnet:
+    driver: bridge
