@@ -23,22 +23,16 @@ public class UserService {
         return userRepository.save(user);
     }
 
-
-    public User updateUserProfile(User user){
-        User existing = userRepository.findById(user.getId());
-
-        if (user.getBio() != null) {
-            existing.setBio(user.getBio());
-        }
-
-        if(user.getProfileImageUrl() != null){
-            existing.setProfileImageUrl(user.getProfileImageUrl());
-        }
-
-        userRepository.update(existing);
-        return existing;
-
+    @CacheEvict(value = "users", key = "#userId")
+    public void updateProfile(Long userId, String bio, String imageUrl) {
+        userRepository.updateProfile(userId, bio, imageUrl);
     }
+
+    // Método auxiliar para o Feed (pegar quem eu sigo)
+    public java.util.List<Long> getFollowingIds(Long userId) {
+        return followRepository.getFollowingIds(userId);
+    }
+
 
     @Cacheable(value = "users", key = "#id")
     public User getUserById(Long id) {

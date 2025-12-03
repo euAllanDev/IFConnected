@@ -3,9 +3,10 @@ package com.ifconnected.model.NOSQL;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
-import java.util.HashSet; // Import
-import java.util.Set;     //
+import java.util.Set;
+
 
 @Document(collection = "posts")
 public class Post {
@@ -19,6 +20,16 @@ public class Post {
 
     // --- Construtor Padrão ---
     public Post() {
+    }
+
+    private Set<Long> likes = new HashSet<>();
+
+    public Set<Long> getLikes() {
+        if(likes == null) likes = new HashSet<>();
+        return likes;
+    }
+    public void setLikes(Set<Long> likes) {
+        this.likes = likes;
     }
 
     // --- Getters e Setters Manuais (Post) ---
