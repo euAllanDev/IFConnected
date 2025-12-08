@@ -3,6 +3,7 @@ package com.ifconnected.model.NOSQL;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -22,13 +23,15 @@ public class Post {
     public Post() {
     }
 
-    private Set<Long> likes = new HashSet<>();
 
-    public Set<Long> getLikes() {
-        if(likes == null) likes = new HashSet<>();
+    private List<Long> likes = new ArrayList<>();
+
+    public List<Long> getLikes() {
+        if (likes == null) likes = new ArrayList<>();
         return likes;
     }
-    public void setLikes(Set<Long> likes) {
+
+    public void setLikes(List<Long> likes) {
         this.likes = likes;
     }
 

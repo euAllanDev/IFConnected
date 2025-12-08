@@ -8,4 +8,5 @@ public interface PostRepository extends MongoRepository<Post, String> {
     List<Post> findByUserId(Long userId);
 
     List<Post> findByUserIdIn(List<Long> userIds);
+
 }

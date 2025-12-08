@@ -2,6 +2,7 @@ package com.ifconnected.controller;
 
 import com.ifconnected.model.JDBC.User;
 import com.ifconnected.model.NOSQL.Post;
+
 import com.ifconnected.repository.mongo.PostRepository;
 import com.ifconnected.service.MinioService;
 import com.ifconnected.service.UserService;
@@ -20,13 +21,15 @@ public class IfConnectedController {
     private final PostRepository postRepository;
     private final MinioService minioService;
 
-    public IfConnectedController(UserService userService, PostRepository postRepository, MinioService minioService) {
+    public IfConnectedController(UserService userService,
+                                 PostRepository postRepository,
+                                 MinioService minioService) {
         this.userService = userService;
         this.postRepository = postRepository;
         this.minioService = minioService;
     }
 
-    // --- USUÁRIOS ---
+    // --- RELACIONAL + REDIS (Usuários) ---
 
     @PostMapping("/users")
     public User createUser(@RequestBody User user) {
@@ -38,25 +41,29 @@ public class IfConnectedController {
         return userService.getUserById(id);
     }
 
-    // ATUALIZAÇÃO: Upload de Foto de Perfil e Bio
-    @PutMapping(value = "/users/{id}/profile", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public void updateProfile(@PathVariable Long id,
-                              @RequestParam(value = "bio", required = false) String bio,
-                              @RequestParam(value = "file", required = false) MultipartFile file) {
+    // ATUALIZAR PERFIL (PUT)
+    @PutMapping("/users/{id}")
+    public User updateUser(@PathVariable Long id, @RequestBody User user) {
+        // Garante que o ID do objeto é o mesmo da URL
+        user.setId(id);
+        // Chama o método novo unificado
+        return userService.updateUser(user);
+    }
 
-        String imageUrl = null;
-        // Se enviou arquivo, faz upload no MinIO
-        if (file != null && !file.isEmpty()) {
-            imageUrl = minioService.uploadImage(file);
-        }
+    // UPLOAD DE FOTO DE PERFIL (POST)
+    @PostMapping(value = "/users/{id}/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public User uploadProfilePhoto(@PathVariable Long id, @RequestParam("file") MultipartFile file) {
+        // 1. Upload imagem MinIO
+        String imageUrl = minioService.uploadImage(file);
 
-        // Se não enviou foto nova, busca o user antigo para manter a foto (lógica simplificada)
-        // Aqui vamos apenas atualizar o que veio.
-        User currentUser = userService.getUserById(id);
-        String finalImage = (imageUrl != null) ? imageUrl : currentUser.getProfileImageUrl();
-        String finalBio = (bio != null) ? bio : currentUser.getBio();
+        // 2. Busca usuário atual
+        User user = userService.getUserById(id);
 
-        userService.updateProfile(id, finalBio, finalImage);
+        // 3. Atualiza URL da foto no objeto
+        user.setProfileImageUrl(imageUrl);
+
+        // 4. Salva usando o método unificado (CORREÇÃO AQUI)
+        return userService.updateUser(user);
     }
 
     @PostMapping("/users/{followerId}/follow/{followedId}")
@@ -64,53 +71,47 @@ public class IfConnectedController {
         userService.follow(followerId, followedId);
     }
 
-    // --- POSTS ---
+    // --- NOSQL + MINIO (Posts) ---
 
     @PostMapping(value = "/posts", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Post createPost(@RequestParam("userId") Long userId,
                            @RequestParam("content") String content,
-                           @RequestParam("file") MultipartFile file) {
-        String imageUrl = minioService.uploadImage(file);
+                           @RequestParam(value = "file", required = false) MultipartFile file) {
+
+        String imageUrl = null;
+        if (file != null && !file.isEmpty()) {
+            imageUrl = minioService.uploadImage(file);
+        }
+
         Post post = new Post();
         post.setUserId(userId);
         post.setContent(content);
         post.setImageUrl(imageUrl);
-        return postRepository.save(post);
-    }
-
-    // NOVO: Curtir Post
-    @PostMapping("/posts/{postId}/like")
-    public Post toggleLike(@PathVariable String postId, @RequestParam Long userId) {
-        Post post = postRepository.findById(postId).orElseThrow();
-
-        // Se já curtiu, remove. Se não, adiciona.
-        if (post.getLikes().contains(userId)) {
-            post.getLikes().remove(userId);
-        } else {
-            post.getLikes().add(userId);
-        }
 
         return postRepository.save(post);
     }
 
-    // NOVO: Feed (Apenas de quem eu sigo)
-    @GetMapping("/feed/{myUserId}")
-    public List<Post> getFeed(@PathVariable Long myUserId) {
-        // 1. Pega a lista de IDs que eu sigo no Postgres
-        List<Long> followingIds = userService.getFollowingIds(myUserId);
+    // Feed Global (For You)
+    @GetMapping("/posts")
+    public List<Post> getAllPosts() {
+        return postRepository.findAll();
+    }
 
-        // 2. Adiciona o meu próprio ID (pra eu ver meus posts também)
-        followingIds.add(myUserId);
-
-        // 3. Busca no Mongo os posts desses IDs
+    // Feed de Amigos (Friends)
+    @GetMapping("/posts/feed/{userId}")
+    public List<Post> getFriendsFeed(@PathVariable Long userId) {
+        List<Long> followingIds = userService.getFollowingIds(userId);
+        followingIds.add(userId); // Inclui o próprio usuário
         return postRepository.findByUserIdIn(followingIds);
     }
 
+    // Feed de um usuário específico (Perfil)
     @GetMapping("/posts/user/{userId}")
     public List<Post> getPostsByUser(@PathVariable Long userId) {
         return postRepository.findByUserId(userId);
     }
 
+    // Comentar
     @PostMapping("/posts/{postId}/comments")
     public Post addComment(@PathVariable String postId, @RequestBody Post.Comment comment) {
         Post post = postRepository.findById(postId).orElseThrow();
@@ -118,6 +119,22 @@ public class IfConnectedController {
             post.setComments(new ArrayList<>());
         }
         post.getComments().add(comment);
+        return postRepository.save(post);
+    }
+
+    // Dar Like
+    @PostMapping("/posts/{postId}/like")
+    public Post toggleLike(@PathVariable String postId, @RequestParam Long userId) {
+        Post post = postRepository.findById(postId).orElseThrow();
+
+        List<Long> likes = post.getLikes();
+        if (likes.contains(userId)) {
+            likes.remove(userId);
+        } else {
+            likes.add(userId);
+        }
+
+        post.setLikes(likes);
         return postRepository.save(post);
     }
 }
