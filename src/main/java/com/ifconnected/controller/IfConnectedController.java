@@ -6,9 +6,11 @@ import com.ifconnected.model.NOSQL.Post;
 import com.ifconnected.repository.mongo.PostRepository;
 import com.ifconnected.service.MinioService;
 import com.ifconnected.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import com.ifconnected.service.GeoFeedService;
 
 import java.util.List;
 import java.util.ArrayList;
@@ -16,7 +18,8 @@ import java.util.ArrayList;
 @RestController
 @RequestMapping("/api")
 public class IfConnectedController {
-
+    @Autowired
+    private GeoFeedService geoFeedService;
     private final UserService userService;
     private final PostRepository postRepository;
     private final MinioService minioService;
@@ -136,5 +139,26 @@ public class IfConnectedController {
 
         post.setLikes(likes);
         return postRepository.save(post);
+    }
+
+    @GetMapping("/posts/feed/regional")
+    public List<Post> getRegionalFeed(@RequestParam Long userId,
+                                      @RequestParam(defaultValue = "50") double radiusKm) {
+
+        User user = userService.getUserById(userId);
+        if (user.getCampusId() == null) {
+            throw new RuntimeException("Usuário não tem campus vinculado!");
+        }
+
+        return geoFeedService.getNearbyCampusFeed(user.getCampusId(), radiusKm);
+    }
+
+    // Sugestão de Amigos
+    @GetMapping("/users/{id}/suggestions")
+    public List<User> getSuggestions(@PathVariable Long id,
+                                     @RequestParam(defaultValue = "50") double radiusKm) {
+
+        User user = userService.getUserById(id);
+        return geoFeedService.getPeopleYouMightKnow(id, user.getCampusId(), radiusKm);
     }
 }

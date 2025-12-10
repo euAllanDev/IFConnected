@@ -8,12 +8,21 @@ public class User implements Serializable {
     private String email;
     private String bio;
     private String profileImageUrl;
+    private Long campusId;
 
     // --- CONSTRUTOR 1: Vazio (Obrigatório) ---
     public User() {
     }
 
-    // --- CONSTRUTOR 2: Com argumentos (Causa do seu erro se estiver duplicado) ---
+    // --- CONSTRUTOR 2: Básico ---
+    public User(Long id, String username, String email) {
+        this.id = id;
+        this.username = username;
+        this.email = email;
+    }
+
+    // --- CONSTRUTOR 3: O QUE ESTAVA FALTANDO (5 Argumentos) ---
+    // Esse é o que o UserRepository está chamando
     public User(Long id, String username, String email, String bio, String profileImageUrl) {
         this.id = id;
         this.username = username;
@@ -22,17 +31,18 @@ public class User implements Serializable {
         this.profileImageUrl = profileImageUrl;
     }
 
-    // --- Adicione os Getters e Setters para Bio e ProfileImageUrl ---
-    public String getBio() { return bio; }
-
-    public void setBio(String bio) { this.bio = bio; }
-
-    public String getProfileImageUrl() { return profileImageUrl; }
-
-    public void setProfileImageUrl(String profileImageUrl) { this.profileImageUrl = profileImageUrl; }
-
+    // --- CONSTRUTOR 4: Completo (Com Campus) ---
+    public User(Long id, String username, String email, String bio, String profileImageUrl, Long campusId) {
+        this.id = id;
+        this.username = username;
+        this.email = email;
+        this.bio = bio;
+        this.profileImageUrl = profileImageUrl;
+        this.campusId = campusId;
+    }
 
     // --- Getters e Setters ---
+
     public Long getId() {
         return id;
     }
@@ -55,5 +65,29 @@ public class User implements Serializable {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public String getBio() {
+        return bio;
+    }
+
+    public void setBio(String bio) {
+        this.bio = bio;
+    }
+
+    public String getProfileImageUrl() {
+        return profileImageUrl;
+    }
+
+    public void setProfileImageUrl(String profileImageUrl) {
+        this.profileImageUrl = profileImageUrl;
+    }
+
+    public Long getCampusId() {
+        return campusId;
+    }
+
+    public void setCampusId(Long campusId) {
+        this.campusId = campusId;
     }
 }

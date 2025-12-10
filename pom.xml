@@ -36,6 +36,12 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
+        <!-- Suporte a tipos Geográficos (PostGIS) -->
+        <dependency>
+            <groupId>org.hibernate.orm</groupId>
+            <artifactId>hibernate-spatial</artifactId>
+        </dependency>
+
         <!-- 2. Banco Relacional (JDBC + PostgreSQL) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
