@@ -59,6 +59,7 @@ public class DataSeeder {
                 System.out.println("✅ Campi do IFPB inseridos no PostGIS com sucesso!");
 
                 //testeeeeeee
+                //teste2
             }
         };
     }
