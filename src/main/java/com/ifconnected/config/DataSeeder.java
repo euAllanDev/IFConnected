@@ -57,6 +57,8 @@ public class DataSeeder {
                 repository.save(new Campus("IFPB - Campus Sousa", pSousa));
 
                 System.out.println("✅ Campi do IFPB inseridos no PostGIS com sucesso!");
+
+                //testeeeeeee
             }
         };
     }
