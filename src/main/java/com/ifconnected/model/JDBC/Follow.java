@@ -1,20 +1,17 @@
 package com.ifconnected.model.JDBC;
 
 public class Follow {
+
     private Long followerId;
     private Long followedId;
 
-    // --- CONSTRUTOR 1: Vazio ---
-    public Follow() {
-    }
+    public Follow() {}
 
-    // --- CONSTRUTOR 2: Com argumentos ---
     public Follow(Long followerId, Long followedId) {
         this.followerId = followerId;
         this.followedId = followedId;
     }
 
-    // --- Getters e Setters ---
     public Long getFollowerId() {
         return followerId;
     }
