@@ -9,8 +9,8 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/**") // Libera para todas as rotas
-                .allowedOrigins("http://localhost:3000") // Libera apenas para o seu Front
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS"); // Métodos permitidos
+        registry.addMapping("/**") // Libera todas as rotas
+                .allowedOrigins("http://localhost:3000") // Permite o Next.js
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD");
     }
 }

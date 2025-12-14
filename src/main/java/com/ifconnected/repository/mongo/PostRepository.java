@@ -8,5 +8,8 @@ public interface PostRepository extends MongoRepository<Post, String> {
     List<Post> findByUserId(Long userId);
 
     List<Post> findByUserIdIn(List<Long> userIds);
+    // --- O MÉTODO QUE FALTAVA ---
+    // Conta quantos posts um usuário tem (Spring cria a lógica sozinho pelo nome)
+    long countByUserId(Long userId);
 
 }

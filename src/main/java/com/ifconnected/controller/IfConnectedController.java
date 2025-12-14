@@ -1,16 +1,17 @@
 package com.ifconnected.controller;
 
+import com.ifconnected.model.DTO.UserProfileDTO;
 import com.ifconnected.model.JDBC.User;
 import com.ifconnected.model.NOSQL.Post;
 
 import com.ifconnected.repository.mongo.PostRepository;
 import com.ifconnected.service.MinioService;
 import com.ifconnected.service.UserService;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.ifconnected.service.GeoFeedService; // Import do GeoService
+
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import com.ifconnected.service.GeoFeedService;
 
 import java.util.List;
 import java.util.ArrayList;
@@ -18,24 +19,34 @@ import java.util.ArrayList;
 @RestController
 @RequestMapping("/api")
 public class IfConnectedController {
-    @Autowired
-    private GeoFeedService geoFeedService;
+
+    // Todos final para garantir imutabilidade e injeção via construtor
     private final UserService userService;
     private final PostRepository postRepository;
     private final MinioService minioService;
+    private final GeoFeedService geoFeedService;
 
+    // CONSTRUTOR ÚNICO (A melhor prática do Spring)
     public IfConnectedController(UserService userService,
                                  PostRepository postRepository,
-                                 MinioService minioService) {
+                                 MinioService minioService,
+                                 GeoFeedService geoFeedService) {
         this.userService = userService;
         this.postRepository = postRepository;
         this.minioService = minioService;
+        this.geoFeedService = geoFeedService;
+    }
+    @PostMapping("/login")
+    public User login(@RequestBody User loginData) {
+        return userService.login(loginData.getEmail());
     }
 
-    // --- RELACIONAL + REDIS (Usuários) ---
 
+    // Rota usada pelo seu Register.tsx
     @PostMapping("/users")
     public User createUser(@RequestBody User user) {
+        // Ao criar aqui, o campusId virá nulo.
+        // O Front deve pedir a localização logo após o login para preencher isso.
         return userService.createUser(user);
     }
 
@@ -44,28 +55,33 @@ public class IfConnectedController {
         return userService.getUserById(id);
     }
 
+
+
+    @GetMapping("/users/{id}/profile")
+    public UserProfileDTO getUserProfile(@PathVariable Long id) {
+        return userService.getUserProfile(id);
+    }
+
     // ATUALIZAR PERFIL (PUT)
     @PutMapping("/users/{id}")
     public User updateUser(@PathVariable Long id, @RequestBody User user) {
-        // Garante que o ID do objeto é o mesmo da URL
         user.setId(id);
-        // Chama o método novo unificado
         return userService.updateUser(user);
+    }
+
+    // PATCH específico para vincular Campus (Útil para o modal de localização)
+    @PatchMapping("/users/{id}/campus")
+    public void updateUserCampus(@PathVariable Long id, @RequestBody Long campusId) {
+        userService.updateCampus(id, campusId);
+        // Precisa garantir que esse método existe no UserService -> UserRepository
     }
 
     // UPLOAD DE FOTO DE PERFIL (POST)
     @PostMapping(value = "/users/{id}/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public User uploadProfilePhoto(@PathVariable Long id, @RequestParam("file") MultipartFile file) {
-        // 1. Upload imagem MinIO
         String imageUrl = minioService.uploadImage(file);
-
-        // 2. Busca usuário atual
         User user = userService.getUserById(id);
-
-        // 3. Atualiza URL da foto no objeto
         user.setProfileImageUrl(imageUrl);
-
-        // 4. Salva usando o método unificado (CORREÇÃO AQUI)
         return userService.updateUser(user);
     }
 
@@ -94,27 +110,23 @@ public class IfConnectedController {
         return postRepository.save(post);
     }
 
-    // Feed Global (For You)
     @GetMapping("/posts")
     public List<Post> getAllPosts() {
         return postRepository.findAll();
     }
 
-    // Feed de Amigos (Friends)
     @GetMapping("/posts/feed/{userId}")
     public List<Post> getFriendsFeed(@PathVariable Long userId) {
         List<Long> followingIds = userService.getFollowingIds(userId);
-        followingIds.add(userId); // Inclui o próprio usuário
+        followingIds.add(userId);
         return postRepository.findByUserIdIn(followingIds);
     }
 
-    // Feed de um usuário específico (Perfil)
     @GetMapping("/posts/user/{userId}")
     public List<Post> getPostsByUser(@PathVariable Long userId) {
         return postRepository.findByUserId(userId);
     }
 
-    // Comentar
     @PostMapping("/posts/{postId}/comments")
     public Post addComment(@PathVariable String postId, @RequestBody Post.Comment comment) {
         Post post = postRepository.findById(postId).orElseThrow();
@@ -125,12 +137,13 @@ public class IfConnectedController {
         return postRepository.save(post);
     }
 
-    // Dar Like
     @PostMapping("/posts/{postId}/like")
     public Post toggleLike(@PathVariable String postId, @RequestParam Long userId) {
         Post post = postRepository.findById(postId).orElseThrow();
-
         List<Long> likes = post.getLikes();
+
+        if (likes == null) likes = new ArrayList<>(); // Proteção contra null
+
         if (likes.contains(userId)) {
             likes.remove(userId);
         } else {
@@ -141,24 +154,25 @@ public class IfConnectedController {
         return postRepository.save(post);
     }
 
+    // --- GEOLOCALIZAÇÃO ---
+
     @GetMapping("/posts/feed/regional")
     public List<Post> getRegionalFeed(@RequestParam Long userId,
                                       @RequestParam(defaultValue = "50") double radiusKm) {
-
         User user = userService.getUserById(userId);
         if (user.getCampusId() == null) {
-            throw new RuntimeException("Usuário não tem campus vinculado!");
+            // Retorna lista vazia ou erro 400 se o usuário não escolheu campus ainda
+            throw new RuntimeException("Usuário não tem campus vinculado! Selecione seu IF no perfil.");
         }
-
         return geoFeedService.getNearbyCampusFeed(user.getCampusId(), radiusKm);
     }
 
-    // Sugestão de Amigos
     @GetMapping("/users/{id}/suggestions")
     public List<User> getSuggestions(@PathVariable Long id,
                                      @RequestParam(defaultValue = "50") double radiusKm) {
-
         User user = userService.getUserById(id);
+        if (user.getCampusId() == null) return new ArrayList<>(); // Sem campus, sem sugestão
+
         return geoFeedService.getPeopleYouMightKnow(id, user.getCampusId(), radiusKm);
     }
 }
