@@ -42,6 +42,18 @@ public class IfConnectedController {
     }
 
 
+    // GET /api/users/{followerId}/isFollowing/{followedId}
+    @GetMapping("/users/{followerId}/isFollowing/{followedId}")
+    public boolean isFollowing(@PathVariable Long followerId, @PathVariable Long followedId) {
+        return userService.isFollowing(followerId, followedId);
+    }
+
+    @DeleteMapping("/users/{followerId}/follow/{followedId}")
+    public void unfollowUser(@PathVariable Long followerId, @PathVariable Long followedId) {
+        // CORREÇÃO AQUI: Chama o UserService
+        userService.unfollow(followerId, followedId);
+    }
+
     // Rota usada pelo seu Register.tsx
     @PostMapping("/users")
     public User createUser(@RequestBody User user) {
@@ -55,7 +67,12 @@ public class IfConnectedController {
         return userService.getUserById(id);
     }
 
-
+    // GET /api/posts/{id}
+    @GetMapping("/posts/{id}")
+    public Post getPostById(@PathVariable String id) {
+        return postRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Post não encontrado"));
+    }
 
     @GetMapping("/users/{id}/profile")
     public UserProfileDTO getUserProfile(@PathVariable Long id) {

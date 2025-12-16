@@ -40,11 +40,7 @@ public class FollowRepository {
         jdbc.update(sql, followerId, followedId);
     }
 
-    // Deixar de seguir
-    public void unfollowUser(Long followerId, Long followedId) {
-        String sql = "DELETE FROM follows WHERE follower_id = ? AND followed_id = ?";
-        jdbc.update(sql, followerId, followedId);
-    }
+
 
     // Listar IDs de quem eu sigo
     public List<Long> getFollowingIds(Long userId) {
@@ -67,10 +63,19 @@ public class FollowRepository {
         Integer count = jdbc.queryForObject(sql, Integer.class, userId);
         return count != null ? count : 0;
     }
+// src/main/java/com/ifconnected/repository/jdbc/FollowRepository.java
 
-    // Verifico se A segue B (Útil para o botão mudar de cor no Front)
+// ...
+
+    // Deixar de seguir (Este método DEVE existir e usar DELETE)
+    public void unfollowUser(Long followerId, Long followedId) {
+        String sql = "DELETE FROM follows WHERE follower_id = ? AND followed_id = ?";
+        jdbc.update(sql, followerId, followedId);
+    }
+    // ...
     public boolean isFollowing(Long followerId, Long followedId) {
         String sql = "SELECT COUNT(*) FROM follows WHERE follower_id = ? AND followed_id = ?";
+        // Se a contagem for > 0, significa que a linha de follow existe
         Integer count = jdbc.queryForObject(sql, Integer.class, followerId, followedId);
         return count != null && count > 0;
     }

@@ -9,6 +9,8 @@ import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import com.ifconnected.repository.mongo.PostRepository;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 
 import java.util.List;
 
@@ -37,6 +39,15 @@ public class UserService {
     public User getUserById(Long id) {
         System.out.println("Buscando usuário no banco de dados (não estava no cache)...");
         return userRepository.findById(id);
+    }
+
+    public boolean isFollowing(Long followerId, Long followedId) {
+        return followRepository.isFollowing(followerId, followedId);
+    }
+
+    public void unfollow(Long followerId, Long followedId) {
+        // CORRETO: Chama o método DELETE no repositório
+        followRepository.unfollowUser(followerId, followedId);
     }
 
     // --- MÉTODO CORRIGIDO ---
@@ -90,6 +101,9 @@ public class UserService {
 
         // 4. Retorna o DTO montado
         return new UserProfileDTO(user, followers, following, posts);
+
+
+
     }
 
     // Expõe o repositório se necessário (opcional, mas o Controller pedia antes)
