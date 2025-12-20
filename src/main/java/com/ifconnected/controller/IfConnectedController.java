@@ -2,12 +2,14 @@ package com.ifconnected.controller;
 
 import com.ifconnected.model.DTO.UserProfileDTO;
 import com.ifconnected.model.JDBC.User;
-import com.ifconnected.model.JPA.Event; // Import da entidade JPA
+import com.ifconnected.model.JPA.Event;
+import com.ifconnected.model.NOSQL.Notification; // Import Notification
 import com.ifconnected.model.NOSQL.Post;
 
 import com.ifconnected.repository.mongo.PostRepository;
-import com.ifconnected.service.EventService; // Import do Service de Eventos
+import com.ifconnected.service.EventService;
 import com.ifconnected.service.MinioService;
+import com.ifconnected.service.NotificationService; // Import NotificationService
 import com.ifconnected.service.UserService;
 import com.ifconnected.service.GeoFeedService;
 
@@ -22,24 +24,26 @@ import java.util.ArrayList;
 @RequestMapping("/api")
 public class IfConnectedController {
 
-    // Todos final para garantir imutabilidade e injeção via construtor
     private final UserService userService;
     private final PostRepository postRepository;
     private final MinioService minioService;
     private final GeoFeedService geoFeedService;
-    private final EventService eventService; // Novo Serviço Injetado
+    private final EventService eventService;
+    private final NotificationService notificationService; // Novo Serviço
 
-    // CONSTRUTOR ÚNICO (Atualizado com EventService)
+    // CONSTRUTOR ÚNICO (Atualizado com NotificationService)
     public IfConnectedController(UserService userService,
                                  PostRepository postRepository,
                                  MinioService minioService,
                                  GeoFeedService geoFeedService,
-                                 EventService eventService) {
+                                 EventService eventService,
+                                 NotificationService notificationService) {
         this.userService = userService;
         this.postRepository = postRepository;
         this.minioService = minioService;
         this.geoFeedService = geoFeedService;
         this.eventService = eventService;
+        this.notificationService = notificationService;
     }
 
     // --- LOGIN & AUTH ---
@@ -51,7 +55,6 @@ public class IfConnectedController {
 
     // --- USUÁRIOS & SEGUIR ---
 
-    // GET /api/users/{followerId}/isFollowing/{followedId}
     @GetMapping("/users/{followerId}/isFollowing/{followedId}")
     public boolean isFollowing(@PathVariable Long followerId, @PathVariable Long followedId) {
         return userService.isFollowing(followerId, followedId);
@@ -65,6 +68,16 @@ public class IfConnectedController {
     @PostMapping("/users/{followerId}/follow/{followedId}")
     public void followUser(@PathVariable Long followerId, @PathVariable Long followedId) {
         userService.follow(followerId, followedId);
+
+        // --- GATILHO NOTIFICAÇÃO: FOLLOW ---
+        User follower = userService.getUserById(followerId);
+        notificationService.createNotification(
+                followedId,             // Quem recebe (o seguido)
+                followerId,             // Quem enviou (o seguidor)
+                follower.getUsername(), // Nome de quem seguiu
+                "FOLLOW",
+                null
+        );
     }
 
     @PostMapping("/users")
@@ -146,12 +159,38 @@ public class IfConnectedController {
 
     @PostMapping("/posts/{postId}/comments")
     public Post addComment(@PathVariable String postId, @RequestBody Post.Comment comment) {
-        Post post = postRepository.findById(postId).orElseThrow();
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("Post não encontrado"));
+
+        // Garante que a lista existe (embora a classe Post agora já garanta)
         if(post.getComments() == null) {
             post.setComments(new ArrayList<>());
         }
+
+        // Força a data e o ID no momento da adição para garantir unicidade
+        comment.setPostedAt(java.time.LocalDateTime.now());
+        if (comment.getCommentId() == null) {
+            comment.setCommentId(java.util.UUID.randomUUID().toString());
+        }
+
         post.getComments().add(comment);
-        return postRepository.save(post);
+
+        // Salva primeiro para garantir consistência
+        Post savedPost = postRepository.save(post);
+
+        // Notificação
+        if (!post.getUserId().equals(comment.getUserId())) {
+            User sender = userService.getUserById(comment.getUserId());
+            notificationService.createNotification(
+                    post.getUserId(),
+                    comment.getUserId(),
+                    sender.getUsername(),
+                    "COMMENT",
+                    postId
+            );
+        }
+
+        return savedPost;
     }
 
     @PostMapping("/posts/{postId}/like")
@@ -162,9 +201,22 @@ public class IfConnectedController {
         if (likes == null) likes = new ArrayList<>();
 
         if (likes.contains(userId)) {
-            likes.remove(userId);
+            likes.remove(userId); // Descurtiu
         } else {
-            likes.add(userId);
+            likes.add(userId); // Curtiu
+
+            // --- GATILHO NOTIFICAÇÃO: LIKE ---
+            // Só notifica se não for o dono curtindo o próprio post
+            if (!post.getUserId().equals(userId)) {
+                User sender = userService.getUserById(userId);
+                notificationService.createNotification(
+                        post.getUserId(),
+                        userId,
+                        sender.getUsername(),
+                        "LIKE",
+                        postId
+                );
+            }
         }
 
         post.setLikes(likes);
@@ -194,29 +246,40 @@ public class IfConnectedController {
 
     // --- EVENTOS (JPA) ---
 
-    // Criar um novo evento
     @PostMapping("/events")
     public Event createEvent(@RequestBody Event event) {
         return eventService.createEvent(event);
     }
 
-    // Listar eventos de um campus
     @GetMapping("/events/campus/{campusId}")
     public List<Event> listEventsByCampus(@PathVariable Long campusId) {
         return eventService.getEventsByCampus(campusId);
     }
 
-    // Participar do evento
     @PostMapping("/events/{id}/join")
     public void joinEvent(@PathVariable Long id, @RequestParam Long userId) {
-        // true = participar
         eventService.toggleParticipation(id, userId, true);
     }
 
-    // Sair do evento
     @PostMapping("/events/{id}/leave")
     public void leaveEvent(@PathVariable Long id, @RequestParam Long userId) {
-        // false = sair
         eventService.toggleParticipation(id, userId, false);
+    }
+
+    // --- NOTIFICAÇÕES (MongoDB) ---
+
+    @GetMapping("/notifications/user/{userId}")
+    public List<Notification> getUserNotifications(@PathVariable Long userId) {
+        return notificationService.getNotifications(userId);
+    }
+
+    @PutMapping("/notifications/user/{userId}/read")
+    public void markNotificationsAsRead(@PathVariable Long userId) {
+        notificationService.markAllAsRead(userId);
+    }
+
+    @GetMapping("/notifications/user/{userId}/count")
+    public long getUnreadNotificationCount(@PathVariable Long userId) {
+        return notificationService.getUnreadCount(userId);
     }
 }
