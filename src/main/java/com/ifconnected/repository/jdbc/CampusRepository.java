@@ -110,4 +110,12 @@ public class CampusRepository {
         }
     }
 
+    // Listar todos os campi
+    public List<Campus> findAll() {
+        // ST_AsBinary é crucial para converter a geometria do PostGIS
+        String sql = "SELECT id, name, ST_AsBinary(location) as location_bytes FROM campus";
+        return jdbcTemplate.query(sql, campusRowMapper);
+    }
+
+
 }

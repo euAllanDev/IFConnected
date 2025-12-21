@@ -1,5 +1,7 @@
 package com.ifconnected.config;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ifconnected.model.JDBC.Campus;
 import com.ifconnected.repository.jdbc.CampusRepository;
 import org.locationtech.jts.geom.Coordinate;
@@ -10,56 +12,60 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.List;
+
 @Configuration
 public class DataSeeder {
+
+    // Classe interna simples para mapear o JSON (DTO temporário)
+    // Precisa ser static para o Jackson instanciar
+    static class CampusJson {
+        public String name;
+        public double lat;
+        public double lon;
+    }
 
     @Bean
     CommandLineRunner initDatabase(CampusRepository repository) {
         return args -> {
-            // Verifica se o banco está vazio antes de inserir
+            // Só roda se o banco estiver vazio para não duplicar
             if (repository.count() == 0) {
-                // Factory para criar pontos geográficos (4326 = Padrão GPS WGS84)
-                GeometryFactory factory = new GeometryFactory(new PrecisionModel(), 4326);
+                System.out.println("📦 Iniciando carga de dados dos Campi via JSON...");
 
-                // --- LITORAL ---
+                try {
+                    // 1. Ler o arquivo campuses.json da pasta resources
+                    ObjectMapper mapper = new ObjectMapper();
+                    TypeReference<List<CampusJson>> typeReference = new TypeReference<>() {};
+                    InputStream inputStream = TypeReference.class.getResourceAsStream("/campuses.json");
 
-                // IFPB - Campus João Pessoa (Jaguaribe)
-                // Coordinate(Longitude X, Latitude Y)
-                Point pJP = factory.createPoint(new Coordinate(-34.8753, -7.1356));
-                repository.save(new Campus("IFPB - Campus João Pessoa", pJP));
+                    if (inputStream == null) {
+                        System.out.println("⚠️ Arquivo campuses.json não encontrado!");
+                        return;
+                    }
 
-                // IFPB - Campus Cabedelo
-                Point pCabedelo = factory.createPoint(new Coordinate(-34.8465, -6.9818));
-                repository.save(new Campus("IFPB - Campus Cabedelo", pCabedelo));
+                    List<CampusJson> campusList = mapper.readValue(inputStream, typeReference);
 
-                // --- AGRESTE / BORBOREMA ---
+                    // 2. Preparar a fábrica de geometria (SRID 4326 = GPS)
+                    GeometryFactory factory = new GeometryFactory(new PrecisionModel(), 4326);
 
-                // IFPB - Campus Campina Grande
-                Point pCG = factory.createPoint(new Coordinate(-35.9064, -7.2366));
-                repository.save(new Campus("IFPB - Campus Campina Grande", pCG));
+                    // 3. Iterar e Salvar no Banco
+                    for (CampusJson c : campusList) {
+                        // Atenção: Point usa (Longitude, Latitude) -> (X, Y)
+                        Point p = factory.createPoint(new Coordinate(c.lon, c.lat));
 
-                // IFPB - Campus Guarabira
-                Point pGuarabira = factory.createPoint(new Coordinate(-35.4950, -6.8524));
-                repository.save(new Campus("IFPB - Campus Guarabira", pGuarabira));
+                        Campus campus = new Campus(c.name, p);
+                        repository.save(campus);
+                    }
 
-                // --- SERTÃO ---
+                    System.out.println("✅ " + campusList.size() + " Campi inseridos com sucesso!");
 
-                // IFPB - Campus Patos
-                Point pPatos = factory.createPoint(new Coordinate(-37.2778, -7.0242));
-                repository.save(new Campus("IFPB - Campus Patos", pPatos));
-
-                // IFPB - Campus Cajazeiras (Alto Sertão)
-                Point pCajazeiras = factory.createPoint(new Coordinate(-38.5539, -6.8892));
-                repository.save(new Campus("IFPB - Campus Cajazeiras", pCajazeiras));
-
-                // IFPB - Campus Sousa
-                Point pSousa = factory.createPoint(new Coordinate(-38.2255, -6.7561));
-                repository.save(new Campus("IFPB - Campus Sousa", pSousa));
-
-                System.out.println("✅ Campi do IFPB inseridos no PostGIS com sucesso!");
-
-                //testeeeeeee
-                //teste
+                } catch (IOException e) {
+                    System.out.println("❌ Erro ao ler JSON: " + e.getMessage());
+                }
+            } else {
+                System.out.println("⚡ Banco de Campi já populado. Pulando carga inicial.");
             }
         };
     }

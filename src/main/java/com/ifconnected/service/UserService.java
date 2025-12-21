@@ -79,6 +79,10 @@ public class UserService {
         return user;
     }
 
+    public List<User> getAllUsers() {
+        return userRepository.findAll();
+    }
+
 
     // --- O MÉTODO QUE FALTAVA (Correção do Erro) ---
     // Monta o Perfil Completo juntando dados do Postgres e do Mongo

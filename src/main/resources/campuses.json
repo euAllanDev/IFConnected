@@ -1,0 +1,42 @@
+[
+  {
+    "name": "IFPB - Campus João Pessoa",
+    "lat": -7.1356,
+    "lon": -34.8753
+  },
+  {
+    "name": "IFPB - Campus Cabedelo",
+    "lat": -6.9818,
+    "lon": -34.8465
+  },
+  {
+    "name": "IFPB - Campus Campina Grande",
+    "lat": -7.2366,
+    "lon": -35.9064
+  },
+  {
+    "name": "IFPB - Campus Esperança",
+    "lat": -7.0250,
+    "lon": -35.8570
+  },
+  {
+    "name": "IFPB - Campus Guarabira",
+    "lat": -6.8524,
+    "lon": -35.4950
+  },
+  {
+    "name": "IFPB - Campus Patos",
+    "lat": -7.0242,
+    "lon": -37.2778
+  },
+  {
+    "name": "IFPB - Campus Cajazeiras",
+    "lat": -6.8892,
+    "lon": -38.5539
+  },
+  {
+    "name": "IFPB - Campus Sousa",
+    "lat": -6.7561,
+    "lon": -38.2255
+  }
+]

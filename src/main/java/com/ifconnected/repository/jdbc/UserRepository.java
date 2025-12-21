@@ -156,4 +156,13 @@ public class UserRepository {
 
         return jdbc.query(sql, userRowMapper, args.toArray());
     }
+
+    // ... outros métodos ...
+
+    // Listar todos os usuários
+    public List<User> findAll() {
+        String sql = "SELECT * FROM users";
+        return jdbc.query(sql, userRowMapper);
+    }
+
 }

@@ -1,5 +1,6 @@
 package com.ifconnected.controller;
 
+import com.ifconnected.model.DTO.CampusDTO;
 import com.ifconnected.model.DTO.UserProfileDTO;
 import com.ifconnected.model.JDBC.User;
 import com.ifconnected.model.JPA.Event;
@@ -7,11 +8,7 @@ import com.ifconnected.model.NOSQL.Notification; // Import Notification
 import com.ifconnected.model.NOSQL.Post;
 
 import com.ifconnected.repository.mongo.PostRepository;
-import com.ifconnected.service.EventService;
-import com.ifconnected.service.MinioService;
-import com.ifconnected.service.NotificationService; // Import NotificationService
-import com.ifconnected.service.UserService;
-import com.ifconnected.service.GeoFeedService;
+import com.ifconnected.service.*;
 
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
@@ -30,6 +27,8 @@ public class IfConnectedController {
     private final GeoFeedService geoFeedService;
     private final EventService eventService;
     private final NotificationService notificationService; // Novo Serviço
+    private final CampusService campusService; // <--- NOVA INJEÇÃO
+
 
     // CONSTRUTOR ÚNICO (Atualizado com NotificationService)
     public IfConnectedController(UserService userService,
@@ -37,13 +36,28 @@ public class IfConnectedController {
                                  MinioService minioService,
                                  GeoFeedService geoFeedService,
                                  EventService eventService,
-                                 NotificationService notificationService) {
+                                 NotificationService notificationService,
+                                 CampusService campusService
+    ) {
         this.userService = userService;
         this.postRepository = postRepository;
         this.minioService = minioService;
         this.geoFeedService = geoFeedService;
         this.eventService = eventService;
         this.notificationService = notificationService;
+        this.campusService = campusService;
+    }
+
+    @GetMapping("/users")
+    public List<User> getAllUsers() {
+        return userService.getAllUsers();
+    }
+
+
+
+    @GetMapping("/campus")
+    public List<CampusDTO> getAllCampuses() {
+        return campusService.getAll();
     }
 
     // --- LOGIN & AUTH ---
