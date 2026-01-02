@@ -296,4 +296,14 @@ public class IfConnectedController {
     public long getUnreadNotificationCount(@PathVariable Long userId) {
         return notificationService.getUnreadCount(userId);
     }
+
+    @PutMapping("/events/{id}")
+    public Event updateEvent(@PathVariable Long id, @RequestBody Event event) {
+        return eventService.updateEvent(id, event);
+    }
+
+    @DeleteMapping("/events/{id}")
+    public void deleteEvent(@PathVariable Long id) {
+        eventService.deleteEvent(id);
+    }
 }

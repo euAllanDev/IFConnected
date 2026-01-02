@@ -43,4 +43,25 @@ public class EventService {
 
         eventRepository.save(event);
     }
+
+    public Event updateEvent(Long id, Event eventDetails) {
+        return eventRepository.findById(id)
+                .map(event -> {
+                    event.setTitle(eventDetails.getTitle());
+                    event.setDescription(eventDetails.getDescription());
+                    event.setEventDate(eventDetails.getEventDate());
+                    event.setLocationName(eventDetails.getLocationName());
+                    // Não alteramos o creatorId nem o campusId normalmente na edição
+                    return eventRepository.save(event);
+                })
+                .orElseThrow(() -> new RuntimeException("Evento não encontrado com id " + id));
+    }
+
+    public void deleteEvent(Long id) {
+        if (eventRepository.existsById(id)) {
+            eventRepository.deleteById(id);
+        } else {
+            throw new RuntimeException("Evento não encontrado para exclusão");
+        }
+    }
 }
