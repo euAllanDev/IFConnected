@@ -4,6 +4,7 @@ import com.ifconnected.model.DTO.CampusDTO;
 import com.ifconnected.model.DTO.UserProfileDTO;
 import com.ifconnected.model.JDBC.User;
 import com.ifconnected.model.JPA.Event;
+import com.ifconnected.model.JPA.Project;
 import com.ifconnected.model.NOSQL.Notification; // Import Notification
 import com.ifconnected.model.NOSQL.Post;
 
@@ -28,6 +29,7 @@ public class IfConnectedController {
     private final EventService eventService;
     private final NotificationService notificationService; // Novo Serviço
     private final CampusService campusService; // <--- NOVA INJEÇÃO
+    private final ProjectService projectService;
 
 
     // CONSTRUTOR ÚNICO (Atualizado com NotificationService)
@@ -37,7 +39,8 @@ public class IfConnectedController {
                                  GeoFeedService geoFeedService,
                                  EventService eventService,
                                  NotificationService notificationService,
-                                 CampusService campusService
+                                 CampusService campusService,
+                                 ProjectService projectService
     ) {
         this.userService = userService;
         this.postRepository = postRepository;
@@ -46,6 +49,7 @@ public class IfConnectedController {
         this.eventService = eventService;
         this.notificationService = notificationService;
         this.campusService = campusService;
+        this.projectService = projectService;
     }
 
     @GetMapping("/users")
@@ -305,5 +309,66 @@ public class IfConnectedController {
     @DeleteMapping("/events/{id}")
     public void deleteEvent(@PathVariable Long id) {
         eventService.deleteEvent(id);
+    }
+
+    @GetMapping("/users/{userId}/projects")
+    public List<Project> getUserProjects(@PathVariable Long userId) {
+        return projectService.getProjectsByUser(userId);
+    }
+
+    @PostMapping(value = "/projects", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Project createProject(
+            @RequestParam("title") String title,
+            @RequestParam("description") String description,
+            @RequestParam("userId") Long userId,
+            @RequestParam(value = "githubUrl", required = false) String githubUrl,
+            @RequestParam(value = "demoUrl", required = false) String demoUrl,
+            @RequestParam(value = "technologies", required = false) List<String> technologies,
+            @RequestParam(value = "file", required = false) MultipartFile file
+    ) {
+        Project project = new Project();
+        project.setTitle(title);
+        project.setDescription(description);
+        project.setUserId(userId);
+        project.setGithubUrl(githubUrl);
+        project.setDemoUrl(demoUrl);
+        project.setTechnologies(technologies);
+
+        if (file != null && !file.isEmpty()) {
+            String imageUrl = minioService.uploadImage(file);
+            project.setImageUrl(imageUrl);
+        }
+
+        return projectService.save(project);
+    }
+
+    @DeleteMapping("/projects/{id}")
+    public void deleteProject(@PathVariable Long id) {
+        projectService.delete(id);
+    }
+
+    @PutMapping(value = "/projects/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Project updateProject(
+            @PathVariable Long id,
+            @RequestParam("title") String title,
+            @RequestParam("description") String description,
+            @RequestParam(value = "githubUrl", required = false) String githubUrl,
+            @RequestParam(value = "demoUrl", required = false) String demoUrl,
+            @RequestParam(value = "technologies", required = false) List<String> technologies,
+            @RequestParam(value = "file", required = false) MultipartFile file
+    ) {
+        Project projectUpdates = new Project();
+        projectUpdates.setTitle(title);
+        projectUpdates.setDescription(description);
+        projectUpdates.setGithubUrl(githubUrl);
+        projectUpdates.setDemoUrl(demoUrl);
+        projectUpdates.setTechnologies(technologies);
+
+        if (file != null && !file.isEmpty()) {
+            String imageUrl = minioService.uploadImage(file);
+            projectUpdates.setImageUrl(imageUrl);
+        }
+
+        return projectService.update(id, projectUpdates);
     }
 }
