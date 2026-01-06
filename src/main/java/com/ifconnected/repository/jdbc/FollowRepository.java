@@ -1,5 +1,7 @@
 package com.ifconnected.repository.jdbc;
 
+import com.ifconnected.model.JDBC.User;
+import com.ifconnected.mapper.UserRowMapper; // Certifique-se que este import está correto no seu projeto
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -12,26 +14,10 @@ public class FollowRepository {
 
     public FollowRepository(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
-        initializeTable(); // Garante que a tabela existe
+        // initializeTable() REMOVIDO -> O Liquibase cuida disso agora
     }
 
-    private void initializeTable() {
-        // Cria tabela de relacionamentos (N:N)
-        // A Chave Primária Composta (follower + followed) impede duplicatas
-        String sql = """
-            CREATE TABLE IF NOT EXISTS follows (
-                follower_id BIGINT NOT NULL,
-                followed_id BIGINT NOT NULL,
-                PRIMARY KEY (follower_id, followed_id)
-            )
-        """;
-        jdbc.execute(sql);
-    }
-
-    // Seguir alguém
     public void followUser(Long followerId, Long followedId) {
-        // ON CONFLICT DO NOTHING: Funcionalidade do Postgres.
-        // Se já estiver seguindo (chave duplicada), não dá erro, apenas ignora.
         String sql = """
             INSERT INTO follows (follower_id, followed_id) 
             VALUES (?, ?) 
@@ -40,43 +26,55 @@ public class FollowRepository {
         jdbc.update(sql, followerId, followedId);
     }
 
+    public void unfollowUser(Long followerId, Long followedId) {
+        String sql = "DELETE FROM follows WHERE follower_id = ? AND followed_id = ?";
+        jdbc.update(sql, followerId, followedId);
+    }
 
+    public boolean isFollowing(Long followerId, Long followedId) {
+        String sql = "SELECT COUNT(*) FROM follows WHERE follower_id = ? AND followed_id = ?";
+        Integer count = jdbc.queryForObject(sql, Integer.class, followerId, followedId);
+        return count != null && count > 0;
+    }
 
-    // Listar IDs de quem eu sigo
     public List<Long> getFollowingIds(Long userId) {
         String sql = "SELECT followed_id FROM follows WHERE follower_id = ?";
         return jdbc.queryForList(sql, Long.class, userId);
     }
 
-    // --- MÉTODOS AUXILIARES PARA O PERFIL (UserProfileDTO) ---
-
-    // Quantos seguidores eu tenho?
     public int countFollowers(Long userId) {
         String sql = "SELECT COUNT(*) FROM follows WHERE followed_id = ?";
         Integer count = jdbc.queryForObject(sql, Integer.class, userId);
         return count != null ? count : 0;
     }
 
-    // Quantas pessoas eu sigo?
     public int countFollowing(Long userId) {
         String sql = "SELECT COUNT(*) FROM follows WHERE follower_id = ?";
         Integer count = jdbc.queryForObject(sql, Integer.class, userId);
         return count != null ? count : 0;
     }
-// src/main/java/com/ifconnected/repository/jdbc/FollowRepository.java
 
-// ...
+    // --- MÉTODOS DE LISTAGEM (Unificados) ---
 
-    // Deixar de seguir (Este método DEVE existir e usar DELETE)
-    public void unfollowUser(Long followerId, Long followedId) {
-        String sql = "DELETE FROM follows WHERE follower_id = ? AND followed_id = ?";
-        jdbc.update(sql, followerId, followedId);
+    public List<User> getFollowersList(Long userId) {
+        // Quem segue o usuário (follower_id) onde o followed_id é o usuário alvo
+        String sql = """
+            SELECT u.* 
+            FROM users u
+            INNER JOIN follows f ON u.id = f.follower_id
+            WHERE f.followed_id = ?
+        """;
+        return jdbc.query(sql, new UserRowMapper(), userId);
     }
-    // ...
-    public boolean isFollowing(Long followerId, Long followedId) {
-        String sql = "SELECT COUNT(*) FROM follows WHERE follower_id = ? AND followed_id = ?";
-        // Se a contagem for > 0, significa que a linha de follow existe
-        Integer count = jdbc.queryForObject(sql, Integer.class, followerId, followedId);
-        return count != null && count > 0;
+
+    public List<User> getFollowingList(Long userId) {
+        // Quem o usuário segue (followed_id) onde o follower_id é o usuário alvo
+        String sql = """
+            SELECT u.* 
+            FROM users u
+            INNER JOIN follows f ON u.id = f.followed_id
+            WHERE f.follower_id = ?
+        """;
+        return jdbc.query(sql, new UserRowMapper(), userId);
     }
 }

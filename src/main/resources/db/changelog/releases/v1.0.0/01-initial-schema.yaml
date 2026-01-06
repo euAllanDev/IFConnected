@@ -1,0 +1,244 @@
+databaseChangeLog:
+  - logicalFilePath: v1.0.0/initial-schema
+  # -----------------------------------------------------------------
+  # 1. EXTENSÕES E CONFIGURAÇÕES INICIAIS
+  # -----------------------------------------------------------------
+  - changeSet:
+      id: enable-postgis
+      author: paulogx77
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 0
+            sql: "SELECT count(*) FROM pg_extension WHERE extname = 'postgis'"
+      changes:
+        - sql: "CREATE EXTENSION IF NOT EXISTS postgis;"
+
+  # -----------------------------------------------------------------
+  # 2. ESTRUTURA DAS TABELAS (SEM RELACIONAMENTOS AINDA)
+  # -----------------------------------------------------------------
+  - changeSet:
+      id: create-tables-structure
+      author: paulogx77
+      changes:
+        # Tabela: CAMPUS
+        - createTable:
+            tableName: campus
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_campus
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+              - column:
+                  name: location
+                  type: GEOMETRY(Point, 4326)
+
+        # Tabela: USERS
+        - createTable:
+            tableName: users
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_users
+                    nullable: false
+              - column:
+                  name: username
+                  type: VARCHAR(255)
+              - column:
+                  name: email
+                  type: VARCHAR(255)
+                  constraints:
+                    unique: true
+                    uniqueConstraintName: uq_users_email
+              - column:
+                  name: bio
+                  type: TEXT
+              - column:
+                  name: profile_image_url
+                  type: TEXT
+              - column:
+                  name: campus_id
+                  type: BIGINT
+
+        # Tabela: FOLLOWS (Relacionamento N:N de Users)
+        - createTable:
+            tableName: follows
+            columns:
+              - column:
+                  name: follower_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: followed_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+        - addPrimaryKey:
+            columnNames: follower_id, followed_id
+            constraintName: pk_follows
+            tableName: follows
+
+        # Tabela: EVENTS
+        - createTable:
+            tableName: events
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_events
+              - column:
+                  name: title
+                  type: VARCHAR(255)
+              - column:
+                  name: description
+                  type: TEXT
+              - column:
+                  name: event_date
+                  type: TIMESTAMP
+              - column:
+                  name: location_name
+                  type: VARCHAR(255)
+              - column:
+                  name: campus_id
+                  type: BIGINT
+              - column:
+                  name: creator_id
+                  type: BIGINT
+
+        # Tabela: EVENT_PARTICIPANTS
+        - createTable:
+            tableName: event_participants
+            columns:
+              - column:
+                  name: event_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+
+        # Tabela: PROJECTS
+        - createTable:
+            tableName: projects
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_projects
+              - column:
+                  name: title
+                  type: VARCHAR(255)
+              - column:
+                  name: description
+                  type: TEXT
+              - column:
+                  name: github_url
+                  type: VARCHAR(500)
+              - column:
+                  name: demo_url
+                  type: VARCHAR(500)
+              - column:
+                  name: image_url
+                  type: TEXT
+              - column:
+                  name: user_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+
+        # Tabela: PROJECT_TECHNOLOGIES
+        - createTable:
+            tableName: project_technologies
+            columns:
+              - column:
+                  name: project_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: tech_name
+                  type: VARCHAR(255)
+
+  # -----------------------------------------------------------------
+  # 3. CRIAÇÃO DOS RELACIONAMENTOS (CHAVES ESTRANGEIRAS)
+  # -----------------------------------------------------------------
+  - changeSet:
+      id: create-foreign-keys
+      author: paulogx77
+      changes:
+        # FKs: FOLLOWS -> USERS
+        - addForeignKeyConstraint:
+            baseTableName: follows
+            baseColumnNames: follower_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_follows_follower
+        - addForeignKeyConstraint:
+            baseTableName: follows
+            baseColumnNames: followed_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_follows_followed
+
+        # FKs: EVENTS -> CAMPUS / USERS
+        # (Se events.campus_id for FK, adicione aqui. Se for só ID solto, remova)
+        # Assumindo que é FK para campus:
+        - addForeignKeyConstraint:
+            baseTableName: events
+            baseColumnNames: campus_id
+            referencedTableName: campus
+            referencedColumnNames: id
+            constraintName: fk_events_campus
+
+        # FKs: EVENT_PARTICIPANTS -> EVENTS / USERS
+        - addForeignKeyConstraint:
+            baseTableName: event_participants
+            baseColumnNames: event_id
+            referencedTableName: events
+            referencedColumnNames: id
+            constraintName: fk_evt_part_event
+        - addForeignKeyConstraint:
+            baseTableName: event_participants
+            baseColumnNames: user_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_evt_part_user
+
+        # FKs: PROJECTS -> USERS
+        - addForeignKeyConstraint:
+            baseTableName: projects
+            baseColumnNames: user_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_projects_user
+
+        # FKs: PROJECT_TECHNOLOGIES -> PROJECTS
+        - addForeignKeyConstraint:
+            baseTableName: project_technologies
+            baseColumnNames: project_id
+            referencedTableName: projects
+            referencedColumnNames: id
+            constraintName: fk_tech_project

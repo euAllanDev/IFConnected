@@ -19,9 +19,9 @@
     <name>IFConnected</name>
     <description>Mini rede social com Spring Boot, Docker, Postgres, Mongo, Redis e MinIO</description>
 
-    <properties>
-        <java.version>17</java.version>
-    </properties>
+<!--    <properties>-->
+<!--        <java.version>17</java.version>-->
+<!--    </properties>-->
 
     <dependencies>
         <dependency>
@@ -83,10 +83,12 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+
         <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-core</artifactId>
+            <groupId>org.liquibase</groupId>
+            <artifactId>liquibase-core</artifactId>
         </dependency>
+
     </dependencies>
 
 

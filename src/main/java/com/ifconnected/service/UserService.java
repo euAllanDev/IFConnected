@@ -50,11 +50,9 @@ public class UserService {
         followRepository.unfollowUser(followerId, followedId);
     }
 
-    // --- MÉTODO CORRIGIDO ---
     // Atualiza usuário no Postgres e atualiza o Cache Redis com o novo valor
     @CachePut(value = "users", key = "#user.id")
     public User updateUser(User user) {
-        // Agora chamamos o método 'update' unificado, que já salva Bio e Foto
         return userRepository.update(user);
     }
 
@@ -83,35 +81,29 @@ public class UserService {
         return userRepository.findAll();
     }
 
-
-    // --- O MÉTODO QUE FALTAVA (Correção do Erro) ---
     // Monta o Perfil Completo juntando dados do Postgres e do Mongo
     public UserProfileDTO getUserProfile(Long userId) {
-        // 1. Busca usuário
-        // Nota: Chamamos userRepository direto para garantir dados frescos,
-        // mas poderia ser getUserById(userId) se quiser usar cache.
         User user = userRepository.findById(userId);
 
         if (user == null) {
             throw new RuntimeException("Usuário não encontrado");
         }
 
-        // 2. Busca estatísticas no Postgres (FollowRepository)
         int followers = followRepository.countFollowers(userId);
         int following = followRepository.countFollowing(userId);
 
-        // 3. Busca estatísticas no Mongo (PostRepository)
         long posts = postRepository.countByUserId(userId);
 
-        // 4. Retorna o DTO montado
         return new UserProfileDTO(user, followers, following, posts);
-
-
-
     }
 
-    // Expõe o repositório se necessário (opcional, mas o Controller pedia antes)
-    public UserRepository getUserRepository() {
-        return userRepository;
+    public List<User> getFollowers(Long userId) {
+        // Precisamos criar este método no followRepository que faz o JOIN com a tabela users
+        return followRepository.getFollowersList(userId);
+    }
+
+    public List<User> getFollowing(Long userId) {
+        // Precisamos criar este método no followRepository que faz o JOIN com a tabela users
+        return followRepository.getFollowingList(userId);
     }
 }
