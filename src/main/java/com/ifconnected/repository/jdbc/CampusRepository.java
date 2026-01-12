@@ -4,6 +4,7 @@ import com.ifconnected.model.JDBC.Campus;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKBReader;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -17,7 +18,7 @@ public class CampusRepository {
 
     public CampusRepository(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
-        // Cria a tabela se não existir (garantindo que a extensão postgis esteja ativa)
+        // Garante que a extensão e a tabela existam
         this.jdbcTemplate.execute("CREATE EXTENSION IF NOT EXISTS postgis");
         this.jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS campus (" +
                 "id SERIAL PRIMARY KEY, " +
@@ -55,15 +56,14 @@ public class CampusRepository {
         jdbcTemplate.update(sql, campus.getName(), campus.getLocation().getX(), campus.getLocation().getY());
     }
 
-    // Método auxiliar para contar registros (usado no DataSeeder)
+    // Método auxiliar para contar registros
     public long count() {
         return jdbcTemplate.queryForObject("SELECT COUNT(*) FROM campus", Long.class);
     }
 
-    // --- Método: Buscar Próximos (Lógica Espacial) ---
+    // --- Método: Buscar Próximos (Ordenação por vizinhança) ---
     public List<Campus> findNearest(Point userLocation) {
-        // ST_AsBinary: Garante que o banco devolva em formato padrão para lermos no Java
-        // <-> : Operador nativo do PostGIS para distância (mais rápido que ST_Distance em ordenação)
+        // Operador <-> é otimizado para "Nearest Neighbor"
         String sql = """
             SELECT id, name, ST_AsBinary(location) as location_bytes 
             FROM campus 
@@ -78,16 +78,17 @@ public class CampusRepository {
         );
     }
 
+    // --- Método: Buscar IDs dentro de um Raio (Geografia Real) ---
     public List<Long> findIdsWithinRadius(Point center, double radiusInMeters) {
-        // ST_DWithin: Retorna TRUE se a distância for menor que o raio
-        // use_spheroid=false para ser mais rápido (plano), true para precisão (globo)
+        // CORREÇÃO CRÍTICA: Cast para ::geography
+        // Isso garante que o cálculo seja feito em METROS sobre a esfera terrestre.
+        // Sem isso, o PostGIS calcula em GRAUS (onde 50.000 graus é o universo todo).
         String sql = """
             SELECT id FROM campus 
             WHERE ST_DWithin(
-                location, 
-                ST_SetSRID(ST_MakePoint(?, ?), 4326), 
-                ?, 
-                true
+                location::geography, 
+                ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, 
+                ?
             )
         """;
 
@@ -95,16 +96,18 @@ public class CampusRepository {
                 Long.class,
                 center.getX(), // Longitude
                 center.getY(), // Latitude
-                radiusInMeters
+                radiusInMeters // Metros
         );
     }
 
     // Método auxiliar para pegar a localização de um campus específico pelo ID
     public Point getLocationById(Long campusId) {
         String sql = "SELECT ST_AsBinary(location) FROM campus WHERE id = ?";
-        byte[] wkb = jdbcTemplate.queryForObject(sql, byte[].class, campusId);
         try {
+            byte[] wkb = jdbcTemplate.queryForObject(sql, byte[].class, campusId);
             return (Point) new org.locationtech.jts.io.WKBReader().read(wkb);
+        } catch (EmptyResultDataAccessException e) {
+            throw new RuntimeException("Campus ID " + campusId + " não encontrado. Atualize seu perfil.");
         } catch (Exception e) {
             throw new RuntimeException("Erro ao ler geometria", e);
         }
@@ -116,6 +119,4 @@ public class CampusRepository {
         String sql = "SELECT id, name, ST_AsBinary(location) as location_bytes FROM campus";
         return jdbcTemplate.query(sql, campusRowMapper);
     }
-
-
 }
