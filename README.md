@@ -1,8 +1,3 @@
-Aqui está uma versão profissional, robusta e acadêmica do README.md.
-
-Ele foi estruturado não apenas para dizer "o que é", mas para justificar as escolhas arquiteturais, explicando o porquê de cada banco de dados (Persistência Poliglota), como foi a implementação técnica e como rodar tudo.
-
-Copie o código abaixo e salve como README.md na raiz do seu projeto.
 
 code
 Markdown
