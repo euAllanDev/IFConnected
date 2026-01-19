@@ -1,9 +1,5 @@
 
-code
-Markdown
-download
-content_copy
-expand_less
+
 # 🌐 IFConnected
 ### A Rede Social Acadêmica Geo-Localizada
 
@@ -22,7 +18,7 @@ expand_less
 
 **IFConnected** é uma plataforma de rede social desenvolvida para conectar estudantes dos Institutos Federais (IFs). 
 
-O grande diferencial do projeto é o uso de **Inteligência Geográfica**. Ao contrário de redes sociais tradicionais, o IFConnected sugere conexões e conteúdos baseados na proximidade física entre os Campi, utilizando cálculos espaciais no banco de dados para integrar alunos de cidades vizinhas.
+O grande diferencial do projeto é o uso de **Inteligência Geográfica**. Ao contrário de redes sociais tradicionais, o IFConnected sugere conexões e conteúdos baseados na proximidade física entre os Campus, utilizando cálculos espaciais no banco de dados para integrar alunos de cidades vizinhas.
 
 Este projeto serve como um estudo de caso avançado sobre **Persistência Poliglota** (Polyglot Persistence), demonstrando como orquestrar múltiplos tipos de bancos de dados (Relacional, NoSQL, Cache e Espacial) em uma única aplicação.
 
@@ -174,13 +170,5 @@ graph TD
     end
 👨‍💻 Autor
 
-Jorge Allan da Silva Santos
-Estudante de Análise e Desenvolvimento de Sistemas - IFPB
+Jorge Allan e Paulo
 
-Desenvolvido como projeto prático para demonstrar competências em Arquitetura de Software, Java Ecosystem e DevOps.
-
-code
-Code
-download
-content_copy
-expand_less
