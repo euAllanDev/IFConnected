@@ -1,12 +1,14 @@
-Aqui está uma versão **profissional, robusta e acadêmica** do `README.md`.
+Aqui está uma versão profissional, robusta e acadêmica do README.md.
 
-Ele foi estruturado não apenas para dizer "o que é", mas para **justificar as escolhas arquiteturais**, explicando o *porquê* de cada banco de dados (Persistência Poliglota), como foi a implementação técnica e como rodar tudo.
+Ele foi estruturado não apenas para dizer "o que é", mas para justificar as escolhas arquiteturais, explicando o porquê de cada banco de dados (Persistência Poliglota), como foi a implementação técnica e como rodar tudo.
 
-Copie o código abaixo e salve como **`README.md`** na raiz do seu projeto.
+Copie o código abaixo e salve como README.md na raiz do seu projeto.
 
----
-
-```markdown
+code
+Markdown
+download
+content_copy
+expand_less
 # 🌐 IFConnected
 ### A Rede Social Acadêmica Geo-Localizada
 
@@ -25,7 +27,7 @@ Copie o código abaixo e salve como **`README.md`** na raiz do seu projeto.
 
 **IFConnected** é uma plataforma de rede social desenvolvida para conectar estudantes dos Institutos Federais (IFs). 
 
-O grande diferencial do projeto é o uso de **Inteligência Geográfica**. Ao contrário de redes sociais tradicionais, o IFConnected sugere conexões e conteúdos baseados na proximidade física entre os Campus, utilizando cálculos espaciais no banco de dados para integrar alunos de cidades vizinhas.
+O grande diferencial do projeto é o uso de **Inteligência Geográfica**. Ao contrário de redes sociais tradicionais, o IFConnected sugere conexões e conteúdos baseados na proximidade física entre os Campi, utilizando cálculos espaciais no banco de dados para integrar alunos de cidades vizinhas.
 
 Este projeto serve como um estudo de caso avançado sobre **Persistência Poliglota** (Polyglot Persistence), demonstrando como orquestrar múltiplos tipos de bancos de dados (Relacional, NoSQL, Cache e Espacial) em uma única aplicação.
 
@@ -69,7 +71,7 @@ O sistema foi desenhado seguindo uma arquitetura híbrida, onde cada tecnologia 
 
 ---
 
-## Frontend (Next.js)
+## 💻 Frontend (Next.js)
 
 A interface foi construída com **Next.js 14 (App Router)** e **TypeScript**, focando em uma experiência de usuário moderna (SPA).
 
@@ -86,22 +88,25 @@ A interface foi construída com **Next.js 14 (App Router)** e **TypeScript**, fo
 
 A organização dos pacotes reflete a natureza híbrida do projeto:
 
-```
 src/main/java/com/ifconnected
-├── controller      # API REST Endpoints
+├── controller # API REST Endpoints
 ├── model
-│   ├── JDBC        # Entidades mapeadas via SQL puro (User, Campus)
-│   ├── JPA         # Entidades mapeadas via Hibernate (Event)
-│   ├── NOSQL       # Documentos MongoDB (Post, Notification)
-│   └── DTO         # Objetos de transferência de dados
+│ ├── JDBC # Entidades mapeadas via SQL puro (User, Campus)
+│ ├── JPA # Entidades mapeadas via Hibernate (Event)
+│ ├── NOSQL # Documentos MongoDB (Post, Notification)
+│ └── DTO # Objetos de transferência de dados
 ├── repository
-│   ├── jdbc        # Queries manuais e PostGIS
-│   ├── jpa         # Interfaces JpaRepository
-│   └── mongo       # Interfaces MongoRepository
-├── service         # Regras de Negócio e Integração dos bancos
-└── config          # Configurações de Segurança, CORS e DataSeeding
-```
+│ ├── jdbc # Queries manuais e PostGIS
+│ ├── jpa # Interfaces JpaRepository
+│ └── mongo # Interfaces MongoRepository
+├── service # Regras de Negócio e Integração dos bancos
+└── config # Configurações de Segurança, CORS e DataSeeding
 
+code
+Code
+download
+content_copy
+expand_less
 ---
 
 ## 🚀 Como Rodar o Projeto
@@ -116,41 +121,53 @@ Na raiz do projeto (onde está o `docker-compose.yml`), execute:
 
 ```bash
 docker-compose up -d
-```
-*Isso iniciará os containers: Postgres (5432), Mongo (27017), Redis (6379) e MinIO (9000).*
 
-### Passo 2: Executar o Backend
+Isso iniciará os containers: Postgres (5432), Mongo (27017), Redis (6379) e MinIO (9000).
+
+Passo 2: Executar o Backend
+
 No terminal, dentro da pasta do projeto Java:
 
-```bash
+code
+Bash
+download
+content_copy
+expand_less
 ./mvnw spring-boot:run
-```
-*O sistema irá inicializar, criar as tabelas automaticamente e popular os Campi do IFPB através do `DataSeeder`.*
 
-### Passo 3: Executar o Frontend
+O sistema irá inicializar, criar as tabelas automaticamente e popular os Campi do IFPB através do DataSeeder.
+
+Passo 3: Executar o Frontend
+
 Em outro terminal, entre na pasta do frontend:
 
-```bash
+code
+Bash
+download
+content_copy
+expand_less
 cd ifconnected-front
 npm install
 npm run dev
-```
-*Acesse a aplicação em:* **http://localhost:3000**
 
----
+Acesse a aplicação em: http://localhost:3000
 
-## 🧪 Testando as Funcionalidades
+🧪 Testando as Funcionalidades
 
-1.  **Crie uma Conta:** Na tela de registro, selecione seu **Campus** (Isso é vital para a geolocalização).
-2.  **Feed Regional:** Acesse a aba "Perto". O sistema usará o PostGIS para calcular quais usuários estão num raio de 50km do seu campus e mostrará as postagens deles.
-3.  **Publicar:** Crie um post com foto. A imagem vai para o MinIO, o texto para o Mongo e a notificação para seus seguidores.
-4.  **Perfil:** Edite seu perfil. A próxima vez que carregar, os dados virão do Redis (Cache).
+Crie uma Conta: Na tela de registro, selecione seu Campus (Isso é vital para a geolocalização).
 
----
+Feed Regional: Acesse a aba "Perto". O sistema usará o PostGIS para calcular quais usuários estão num raio de 50km do seu campus e mostrará as postagens deles.
 
-## 🛠️ Diagrama de Fluxo de Dados
+Publicar: Crie um post com foto. A imagem vai para o MinIO, o texto para o Mongo e a notificação para seus seguidores.
 
-```mermaid
+Perfil: Edite seu perfil. A próxima vez que carregar, os dados virão do Redis (Cache).
+
+🛠️ Diagrama de Fluxo de Dados
+code
+Mermaid
+download
+content_copy
+expand_less
 graph TD
     Client[Frontend Next.js] --> API[Spring Boot Controller]
     
@@ -160,13 +177,15 @@ graph TD
     API -->|Cache| Redis[(Redis)]
     API -->|Upload| MinIO[(MinIO Storage)]
     end
-```
+👨‍💻 Autor
 
----
+Jorge Allan da Silva Santos
+Estudante de Análise e Desenvolvimento de Sistemas - IFPB
 
-## 👨‍💻 Autor
+Desenvolvido como projeto prático para demonstrar competências em Arquitetura de Software, Java Ecosystem e DevOps.
 
-**Jorge Allan**  
-**Paulo**  
-
-```
+code
+Code
+download
+content_copy
+expand_less
