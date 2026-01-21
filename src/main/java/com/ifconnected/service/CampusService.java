@@ -23,7 +23,7 @@ public class CampusService {
         this.geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
     }
 
-    // Método já existente...
+
     public List<CampusDTO> findNearestCampuses(Double lat, Double lon) {
         Point userLocation = geometryFactory.createPoint(new Coordinate(lon, lat));
         List<Campus> campuses = campusRepository.findNearest(userLocation);

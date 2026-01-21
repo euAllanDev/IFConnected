@@ -11,15 +11,15 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // Captura o RuntimeException que lançamos no Repository
+    // Captura o RuntimeException lancado no Repository
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Object> handleRuntimeException(RuntimeException ex) {
-        // Monta um JSON bonitinho de erro
+        // Monta um JSON
         Map<String, String> error = new HashMap<>();
         error.put("error", "Bad Request");
-        error.put("message", ex.getMessage()); // A mensagem "O e-mail já existe..." vem aqui
+        error.put("message", ex.getMessage());
 
-        // Retorna HTTP 400 (Bad Request) em vez de 500
+
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
 }
