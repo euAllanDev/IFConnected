@@ -1,10 +1,13 @@
 package com.ifconnected.service;
 
+import com.ifconnected.model.DTO.UpdateUserDTO;
 import com.ifconnected.model.DTO.UserProfileDTO;
+import com.ifconnected.model.DTO.UserResponseDTO;
 import com.ifconnected.model.JDBC.User;
 import com.ifconnected.repository.jdbc.FollowRepository;
 import com.ifconnected.repository.jdbc.UserRepository;
 import com.ifconnected.repository.mongo.PostRepository;
+import com.ifconnected.security.UserPrincipal;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
@@ -25,47 +28,84 @@ public class UserService implements UserDetailsService {
     private final PostRepository postRepository;
     private final PasswordEncoder passwordEncoder;
 
-    // Construtor com injeção de dependências
-    // @Lazy no PasswordEncoder evita ciclo de dependência se ocorrer
-    public UserService(UserRepository userRepository,
-                       FollowRepository followRepository,
-                       PostRepository postRepository,
-                       @Lazy PasswordEncoder passwordEncoder) {
+    public UserService(
+            UserRepository userRepository,
+            FollowRepository followRepository,
+            PostRepository postRepository,
+            @Lazy PasswordEncoder passwordEncoder
+    ) {
         this.userRepository = userRepository;
         this.followRepository = followRepository;
         this.postRepository = postRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
+    // ✅ usado no register pra não disparar exception
     public boolean isEmailRegistered(String email) {
         return userRepository.findByEmail(email) != null;
     }
 
+    // ✅ Spring Security usa isso no login
     @Override
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user = userRepository.findByEmail(username);
+    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+        User user = userRepository.findByEmail(email);
         if (user == null) {
-            throw new UsernameNotFoundException("Usuário não encontrado com o email: " + username);
+            throw new UsernameNotFoundException("Usuário não encontrado com o email: " + email);
         }
-        return user;
+        return new UserPrincipal(user);
     }
 
-    // --- MÉTODOS DE NEGÓCIO ---
-
-    public User createUser(User user) {
+    // ✅ Register
+    public UserResponseDTO createUser(User user) {
         user.setPassword(passwordEncoder.encode(user.getPassword()));
-        return userRepository.save(user);
+        User saved = userRepository.save(user);
+        return toResponseDTO(saved);
     }
+
+    // --- ENTIDADE (uso interno) ---
 
     @Cacheable(value = "users", key = "#id")
-    public User getUserById(Long id) {
-        // System.out.println("Buscando usuário no banco de dados...");
+    public User getUserEntityById(Long id) {
         return userRepository.findById(id);
     }
 
-    @CachePut(value = "users", key = "#user.id")
-    public User updateUser(User user) {
-        return userRepository.update(user);
+    // --- DTO (uso externo/front) ---
+
+    public UserResponseDTO getUserById(Long id) {
+        User user = getUserEntityById(id);
+        if (user == null) throw new RuntimeException("Usuário não encontrado");
+        return toResponseDTO(user);
+    }
+
+    public List<UserResponseDTO> getAllUsersDTO() {
+        return userRepository.findAll().stream().map(this::toResponseDTO).toList();
+    }
+
+    // ✅ update via DTO (seguro)
+    @CacheEvict(value = "users", key = "#id")
+    public UserResponseDTO updateUser(Long id, UpdateUserDTO dto) {
+        User existing = userRepository.findById(id);
+        if (existing == null) throw new RuntimeException("Usuário não encontrado");
+
+        if (dto.username() != null && !dto.username().isBlank()) {
+            existing.setUsername(dto.username().trim());
+        }
+        if (dto.bio() != null) {
+            existing.setBio(dto.bio());
+        }
+        if (dto.campusId() != null) {
+            existing.setCampusId(dto.campusId());
+        }
+
+        User updated = userRepository.update(existing);
+        return toResponseDTO(updated);
+    }
+
+    // ✅ para upload de foto ou updates internos (entidade -> DTO)
+    @CacheEvict(value = "users", key = "#user.id")
+    public UserResponseDTO updateUserEntity(User user) {
+        User updated = userRepository.update(user);
+        return toResponseDTO(updated);
     }
 
     @CacheEvict(value = "users", key = "#userId")
@@ -73,7 +113,7 @@ public class UserService implements UserDetailsService {
         userRepository.updateCampus(userId, campusId);
     }
 
-    // --- SEGUIR / FOLLOW ---
+    // --- FOLLOW ---
 
     public boolean isFollowing(Long followerId, Long followedId) {
         return followRepository.isFollowing(followerId, followedId);
@@ -91,23 +131,34 @@ public class UserService implements UserDetailsService {
         return followRepository.getFollowingIds(userId);
     }
 
-    // --- GERAL ---
-
-    public List<User> getAllUsers() {
-        return userRepository.findAll();
-    }
+    // --- PROFILE ---
 
     public UserProfileDTO getUserProfile(Long userId) {
         User user = userRepository.findById(userId);
-
-        if (user == null) {
-            throw new RuntimeException("Usuário não encontrado");
-        }
+        if (user == null) throw new RuntimeException("Usuário não encontrado");
 
         int followers = followRepository.countFollowers(userId);
         int following = followRepository.countFollowing(userId);
         long posts = postRepository.countByUserId(userId);
 
-        return new UserProfileDTO(user, followers, following, posts);
+        // ✅ seu UserProfileDTO agora usa UserResponseDTO
+        return new UserProfileDTO(toResponseDTO(user), followers, following, posts);
+    }
+
+    // --- MAPPER ---
+
+    private UserResponseDTO toResponseDTO(User user) {
+        return new UserResponseDTO(
+                user.getId(),
+                user.getUsername(),        // ✅ username normal (nome)
+                user.getEmail(),           // ✅ email separado
+                user.getBio(),
+                user.getProfileImageUrl(),
+                user.getCampusId()
+        );
+    }
+
+    public UserResponseDTO toUserResponse(User user) {
+        return toResponseDTO(user);
     }
 }

@@ -1,24 +1,31 @@
 package com.ifconnected.controller;
 
+import com.ifconnected.config.OpenApiConfig;
 import com.ifconnected.model.DTO.CampusDTO;
+import com.ifconnected.model.DTO.UpdateUserDTO;
 import com.ifconnected.model.DTO.UserProfileDTO;
+import com.ifconnected.model.DTO.UserResponseDTO;
 import com.ifconnected.model.JDBC.User;
 import com.ifconnected.model.JPA.Event;
 import com.ifconnected.model.JPA.Project;
 import com.ifconnected.model.NOSQL.Notification;
 import com.ifconnected.model.NOSQL.Post;
-
 import com.ifconnected.repository.mongo.PostRepository;
+import com.ifconnected.security.UserPrincipal;
 import com.ifconnected.service.*;
-
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
 
+@Tag(name = "API", description = "Endpoints principais")
+@SecurityRequirement(name = OpenApiConfig.BEARER_AUTH)
 @RestController
 @RequestMapping("/api")
 public class IfConnectedController {
@@ -53,18 +60,17 @@ public class IfConnectedController {
 
     // --- LEITURAS GERAIS ---
 
+    @Operation(summary = "Listar todos os usuários (público)")
     @GetMapping("/users")
-    public List<User> getAllUsers() {
-        return userService.getAllUsers();
+    public List<UserResponseDTO> getAllUsers() {
+        return userService.getAllUsersDTO();
     }
 
+    @Operation(summary = "Listar campus (público)")
     @GetMapping("/campus")
     public List<CampusDTO> getAllCampuses() {
         return campusService.getAll();
     }
-
-    // --- (REMOVIDO) LOGIN e CREATE USER ---
-    // Motivo: Agora eles ficam no AuthenticationController (/auth/login e /auth/register)
 
     // --- PERFIL E SEGUIR ---
 
@@ -82,19 +88,20 @@ public class IfConnectedController {
     public void followUser(@PathVariable Long followerId, @PathVariable Long followedId) {
         userService.follow(followerId, followedId);
 
-        // Notificação de Follow
-        User follower = userService.getUserById(followerId);
+        // Notificação de Follow (precisa do "username" do usuário)
+        UserResponseDTO follower = userService.getUserById(followerId);
+
         notificationService.createNotification(
                 followedId,
                 followerId,
-                follower.getUsername(),
+                follower.username(),
                 "FOLLOW",
                 null
         );
     }
 
     @GetMapping("/users/{id}")
-    public User getUser(@PathVariable Long id) {
+    public UserResponseDTO getUser(@PathVariable Long id) {
         return userService.getUserById(id);
     }
 
@@ -104,9 +111,8 @@ public class IfConnectedController {
     }
 
     @PutMapping("/users/{id}")
-    public User updateUser(@PathVariable Long id, @RequestBody User user) {
-        user.setId(id);
-        return userService.updateUser(user);
+    public UserResponseDTO updateUser(@PathVariable Long id, @RequestBody UpdateUserDTO dto) {
+        return userService.updateUser(id, dto);
     }
 
     @PatchMapping("/users/{id}/campus")
@@ -115,11 +121,14 @@ public class IfConnectedController {
     }
 
     @PostMapping(value = "/users/{id}/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public User uploadProfilePhoto(@PathVariable Long id, @RequestParam("file") MultipartFile file) {
+    public UserResponseDTO uploadProfilePhoto(@PathVariable Long id, @RequestParam("file") MultipartFile file) {
         String imageUrl = minioService.uploadImage(file);
-        User user = userService.getUserById(id);
-        user.setProfileImageUrl(imageUrl);
-        return userService.updateUser(user);
+
+        User entity = userService.getUserEntityById(id);
+        if (entity == null) throw new RuntimeException("Usuário não encontrado");
+
+        entity.setProfileImageUrl(imageUrl);
+        return userService.updateUserEntity(entity);
     }
 
     // --- POSTS (NoSQL) ---
@@ -170,7 +179,7 @@ public class IfConnectedController {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new RuntimeException("Post não encontrado"));
 
-        if(post.getComments() == null) {
+        if (post.getComments() == null) {
             post.setComments(new ArrayList<>());
         }
 
@@ -184,11 +193,12 @@ public class IfConnectedController {
 
         // Notificação Comment
         if (!post.getUserId().equals(comment.getUserId())) {
-            User sender = userService.getUserById(comment.getUserId());
+            UserResponseDTO sender = userService.getUserById(comment.getUserId());
+
             notificationService.createNotification(
                     post.getUserId(),
                     comment.getUserId(),
-                    sender.getUsername(),
+                    sender.username(),
                     "COMMENT",
                     postId
             );
@@ -208,13 +218,14 @@ public class IfConnectedController {
             likes.remove(userId);
         } else {
             likes.add(userId);
+
             // Notificação Like
             if (!post.getUserId().equals(userId)) {
-                User sender = userService.getUserById(userId);
+                UserResponseDTO sender = userService.getUserById(userId);
                 notificationService.createNotification(
                         post.getUserId(),
                         userId,
-                        sender.getUsername(),
+                        sender.username(),
                         "LIKE",
                         postId
                 );
@@ -230,7 +241,10 @@ public class IfConnectedController {
     @GetMapping("/posts/feed/regional")
     public List<Post> getRegionalFeed(@RequestParam Long userId,
                                       @RequestParam(defaultValue = "50") double radiusKm) {
-        User user = userService.getUserById(userId);
+        // ✅ aqui precisa de entidade (campusId)
+        User user = userService.getUserEntityById(userId);
+        if (user == null) throw new RuntimeException("Usuário não encontrado");
+
         if (user.getCampusId() == null) {
             throw new RuntimeException("Usuário não tem campus vinculado! Selecione seu IF no perfil.");
         }
@@ -238,12 +252,17 @@ public class IfConnectedController {
     }
 
     @GetMapping("/users/{id}/suggestions")
-    public List<User> getSuggestions(@PathVariable Long id,
-                                     @RequestParam(defaultValue = "50") double radiusKm) {
-        User user = userService.getUserById(id);
+    public List<UserResponseDTO> getSuggestions(@PathVariable Long id,
+                                                @RequestParam(defaultValue = "50") double radiusKm) {
+        User user = userService.getUserEntityById(id);
+        if (user == null) throw new RuntimeException("Usuário não encontrado");
         if (user.getCampusId() == null) return new ArrayList<>();
 
-        return geoFeedService.getPeopleYouMightKnow(id, user.getCampusId(), radiusKm);
+        List<User> suggestions = geoFeedService.getPeopleYouMightKnow(id, user.getCampusId(), radiusKm);
+
+        return suggestions.stream()
+                .map(userService::toUserResponse)
+                .toList();
     }
 
     // --- EVENTOS (JPA) ---
@@ -343,24 +362,25 @@ public class IfConnectedController {
             @RequestParam(value = "technologies", required = false) List<String> technologies,
             @RequestParam(value = "file", required = false) MultipartFile file
     ) {
-        Project projectUpdates = new Project();
-        projectUpdates.setTitle(title);
-        projectUpdates.setDescription(description);
-        projectUpdates.setGithubUrl(githubUrl);
-        projectUpdates.setDemoUrl(demoUrl);
-        projectUpdates.setTechnologies(technologies);
+        Project updates = new Project();
+        updates.setTitle(title);
+        updates.setDescription(description);
+        updates.setGithubUrl(githubUrl);
+        updates.setDemoUrl(demoUrl);
+        updates.setTechnologies(technologies);
 
         if (file != null && !file.isEmpty()) {
             String imageUrl = minioService.uploadImage(file);
-            projectUpdates.setImageUrl(imageUrl);
+            updates.setImageUrl(imageUrl);
         }
 
-        return projectService.update(id, projectUpdates);
+        return projectService.update(id, updates);
     }
 
+    @Operation(summary = "Usuário logado", description = "Retorna os dados públicos do usuário autenticado.")
     @GetMapping("/me")
-    public User me(Authentication authentication) {
-        return (User) authentication.getPrincipal();
+    public UserResponseDTO me(Authentication authentication) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        return userService.getUserById(principal.getId());
     }
-
 }

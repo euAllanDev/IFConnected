@@ -26,9 +26,11 @@ public class SecurityFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getServletPath();
+
         return path.startsWith("/auth")
-                || path.startsWith("/swagger")
-                || path.startsWith("/v3/api-docs");
+                || path.startsWith("/swagger-ui")
+                || path.startsWith("/v3/api-docs")
+                || path.startsWith("/swagger-ui.html");
     }
 
     @Override
@@ -47,10 +49,12 @@ public class SecurityFilter extends OncePerRequestFilter {
                 var user = userRepository.findByEmail(login);
 
                 if (user != null) {
+                    var principal = new com.ifconnected.security.UserPrincipal(user);
+
                     var authentication = new UsernamePasswordAuthenticationToken(
-                            user,
+                            principal,
                             null,
-                            user.getAuthorities()
+                            principal.getAuthorities()
                     );
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                 }
