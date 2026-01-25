@@ -1,93 +1,72 @@
 package com.ifconnected.model.JDBC;
 
-import java.io.Serializable;
+import jakarta.persistence.*;
+import lombok.*;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 
-public class User implements Serializable {
+import java.io.Serializable;
+import java.util.Collection;
+import java.util.List;
+
+@Entity
+@Table(name = "users")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class User implements UserDetails, Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    // Nome de exibição
+    @Column(nullable = false)
     private String username;
+
+    // Login
+    @Column(nullable = false, unique = true)
     private String email;
+
+    @Column(nullable = false)
+    private String password;
+
+    @Column(columnDefinition = "TEXT")
     private String bio;
+
+    @Column(name = "profile_image_url", columnDefinition = "TEXT")
     private String profileImageUrl;
+
+    @Column(name = "campus_id", nullable = false)
     private Long campusId;
 
-    // --- CONSTRUTOR 1: Vazio (Obrigatório) ---
-    public User() {
+    // --- SPRING SECURITY ---
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return List.of(new SimpleGrantedAuthority("ROLE_USER"));
     }
 
-    // --- CONSTRUTOR 2: Básico ---
-    public User(Long id, String username, String email) {
-        this.id = id;
-        this.username = username;
-        this.email = email;
-    }
-
-    // --- CONSTRUTOR 3: O QUE ESTAVA FALTANDO (5 Argumentos) ---
-    // Esse é o que o UserRepository está chamando
-    public User(Long id, String username, String email, String bio, String profileImageUrl) {
-        this.id = id;
-        this.username = username;
-        this.email = email;
-        this.bio = bio;
-        this.profileImageUrl = profileImageUrl;
-    }
-
-    // --- CONSTRUTOR 4: Completo (Com Campus) ---
-    public User(Long id, String username, String email, String bio, String profileImageUrl, Long campusId) {
-        this.id = id;
-        this.username = username;
-        this.email = email;
-        this.bio = bio;
-        this.profileImageUrl = profileImageUrl;
-        this.campusId = campusId;
-    }
-
-    // --- Getters e Setters ---
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
+    // Login será feito pelo email
+    @Override
     public String getUsername() {
-        return username;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
-    }
-
-    public String getEmail() {
         return email;
     }
 
-    public void setEmail(String email) {
-        this.email = email;
-    }
+    @Override
+    public boolean isAccountNonExpired() { return true; }
 
-    public String getBio() {
-        return bio;
-    }
+    @Override
+    public boolean isAccountNonLocked() { return true; }
 
-    public void setBio(String bio) {
-        this.bio = bio;
-    }
+    @Override
+    public boolean isCredentialsNonExpired() { return true; }
 
-    public String getProfileImageUrl() {
-        return profileImageUrl;
-    }
-
-    public void setProfileImageUrl(String profileImageUrl) {
-        this.profileImageUrl = profileImageUrl;
-    }
-
-    public Long getCampusId() {
-        return campusId;
-    }
-
-    public void setCampusId(Long campusId) {
-        this.campusId = campusId;
-    }
+    @Override
+    public boolean isEnabled() { return true; }
 }

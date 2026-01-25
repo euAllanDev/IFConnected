@@ -16,98 +16,94 @@ public class UserRepository {
 
     private final JdbcTemplate jdbc;
 
-    // RowMapper: Transforma dados do banco em Objeto Java
-    private final RowMapper<User> userRowMapper = (rs, rowNum) -> {
-        User user = new User(
-                rs.getLong("id"),
-                rs.getString("username"),
-                rs.getString("email"),
-                rs.getString("bio"),
-                rs.getString("profile_image_url")
-        );
+    public UserRepository(JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
+    }
 
-        // Mapeia o campus_id se existir (evita NullPointer)
+    // 🔑 RowMapper CORRETO (inclui password)
+    private final RowMapper<User> userRowMapper = (rs, rowNum) -> {
+        User user = new User();
+        user.setId(rs.getLong("id"));
+        user.setUsername(rs.getString("username"));
+        user.setEmail(rs.getString("email"));
+        user.setPassword(rs.getString("password")); // 🔥 ESSENCIAL
+        user.setBio(rs.getString("bio"));
+        user.setProfileImageUrl(rs.getString("profile_image_url"));
+
         long campusId = rs.getLong("campus_id");
         if (!rs.wasNull()) {
             user.setCampusId(campusId);
         }
+
         return user;
     };
 
-    public UserRepository(JdbcTemplate jdbc) {
-        this.jdbc = jdbc;
-        initializeTable(); // Garante que a tabela existe ao iniciar
-    }
+    // --- BUSCAS ---
 
-    // Cria a tabela automaticamente se não existir (Padrão e Seguro)
-    private void initializeTable() {
-        String sql = """
-            CREATE TABLE IF NOT EXISTS users (
-                id SERIAL PRIMARY KEY,
-                username VARCHAR(255) NOT NULL,
-                email VARCHAR(255) NOT NULL UNIQUE,
-                bio TEXT,
-                profile_image_url TEXT,
-                campus_id BIGINT
-            )
-        """;
-        jdbc.execute(sql);
-    }
-
-    // Adicione esse método na classe UserRepository
     public User findByEmail(String email) {
         String sql = "SELECT * FROM users WHERE email = ?";
         try {
             return jdbc.queryForObject(sql, userRowMapper, email);
-        } catch (org.springframework.dao.EmptyResultDataAccessException e) {
-            return null; // Usuário não existe
+        } catch (EmptyResultDataAccessException e) {
+            return null;
         }
     }
-
-    public User save(User user) {
-        String sql = """
-            INSERT INTO users (username, email, bio, profile_image_url, campus_id)
-            VALUES (?, ?, ?, ?, ?)
-            RETURNING id
-        """;
-
-        try {
-            Long newId = jdbc.queryForObject(sql, Long.class,
-                    user.getUsername(),
-                    user.getEmail(),
-                    user.getBio(),
-                    user.getProfileImageUrl(),
-                    user.getCampusId()
-            );
-
-            user.setId(newId);
-            return user;
-
-        } catch (DuplicateKeyException e) {
-            // Aqui capturamos o erro do Postgres e lançamos um erro mais amigável
-            throw new RuntimeException("Erro: O e-mail '" + user.getEmail() + "' já está cadastrado no sistema.");
-        }
-    }
-
-
 
     public User findById(Long id) {
         String sql = "SELECT * FROM users WHERE id = ?";
         try {
             return jdbc.queryForObject(sql, userRowMapper, id);
         } catch (EmptyResultDataAccessException e) {
-            return null; // Ou lançar uma exceção personalizada
+            return null;
         }
     }
 
+    public List<User> findAll() {
+        return jdbc.query("SELECT * FROM users", userRowMapper);
+    }
+
+    // --- SAVE ---
+
+    public User save(User user) {
+        String sql = """
+            INSERT INTO users (username, email, password, bio, profile_image_url, campus_id)
+            VALUES (?, ?, ?, ?, ?, ?)
+            RETURNING id
+        """;
+
+        try {
+            Long id = jdbc.queryForObject(
+                    sql,
+                    Long.class,
+                    user.getUsername(),
+                    user.getEmail(),
+                    user.getPassword(),
+                    user.getBio(),
+                    user.getProfileImageUrl(),
+                    user.getCampusId()
+            );
+
+            user.setId(id);
+            return user;
+
+        } catch (DuplicateKeyException e) {
+            throw new RuntimeException(
+                    "Erro: O e-mail '" + user.getEmail() + "' já está cadastrado."
+            );
+        }
+    }
+
+    // --- UPDATE ---
+
     public User update(User user) {
         String sql = """
-            UPDATE users 
+            UPDATE users
             SET username = ?, email = ?, bio = ?, profile_image_url = ?, campus_id = ?
             WHERE id = ?
         """;
 
-        jdbc.update(sql,
+        jdbc.update(
+                sql,
                 user.getUsername(),
                 user.getEmail(),
                 user.getBio(),
@@ -119,13 +115,16 @@ public class UserRepository {
         return user;
     }
 
-    // Atualiza apenas o Campus (Método auxiliar rápido)
     public void updateCampus(Long userId, Long campusId) {
-        String sql = "UPDATE users SET campus_id = ? WHERE id = ?";
-        jdbc.update(sql, campusId, userId);
+        jdbc.update(
+                "UPDATE users SET campus_id = ? WHERE id = ?",
+                campusId,
+                userId
+        );
     }
 
-    // Busca usuários por lista de Campi
+    // --- SUGESTÕES ---
+
     public List<Long> findUserIdsByCampusIds(List<Long> campusIds) {
         if (campusIds.isEmpty()) return List.of();
 
@@ -135,18 +134,18 @@ public class UserRepository {
         return jdbc.queryForList(sql, Long.class, campusIds.toArray());
     }
 
-    // Sugestão de amigos (Pessoas dos campi vizinhos que eu NÃO sigo)
     public List<User> findSuggestions(Long myId, List<Long> nearbyCampusIds) {
         if (nearbyCampusIds.isEmpty()) return List.of();
 
         String inSql = String.join(",", Collections.nCopies(nearbyCampusIds.size(), "?"));
 
-        // Seleciona users dos campi vizinhos EXCETO eu mesmo E quem eu já sigo
         String sql = String.format("""
-            SELECT * FROM users 
-            WHERE campus_id IN (%s) 
-            AND id != ? 
-            AND id NOT IN (SELECT followed_id FROM follows WHERE follower_id = ?)
+            SELECT * FROM users
+            WHERE campus_id IN (%s)
+            AND id != ?
+            AND id NOT IN (
+                SELECT followed_id FROM follows WHERE follower_id = ?
+            )
             LIMIT 10
         """, inSql);
 
@@ -156,13 +155,4 @@ public class UserRepository {
 
         return jdbc.query(sql, userRowMapper, args.toArray());
     }
-
-    // ... outros métodos ...
-
-    // Listar todos os usuários
-    public List<User> findAll() {
-        String sql = "SELECT * FROM users";
-        return jdbc.query(sql, userRowMapper);
-    }
-
 }

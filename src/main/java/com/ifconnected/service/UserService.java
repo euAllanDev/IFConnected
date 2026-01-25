@@ -4,53 +4,65 @@ import com.ifconnected.model.DTO.UserProfileDTO;
 import com.ifconnected.model.JDBC.User;
 import com.ifconnected.repository.jdbc.FollowRepository;
 import com.ifconnected.repository.jdbc.UserRepository;
+import com.ifconnected.repository.mongo.PostRepository;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import com.ifconnected.repository.mongo.PostRepository;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 
 import java.util.List;
 
 @Service
-public class UserService {
+public class UserService implements UserDetailsService {
 
     private final UserRepository userRepository;
     private final FollowRepository followRepository;
     private final PostRepository postRepository;
+    private final PasswordEncoder passwordEncoder;
 
+    // Construtor com injeção de dependências
+    // @Lazy no PasswordEncoder evita ciclo de dependência se ocorrer
     public UserService(UserRepository userRepository,
                        FollowRepository followRepository,
-                       PostRepository postRepository) {
+                       PostRepository postRepository,
+                       @Lazy PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.followRepository = followRepository;
         this.postRepository = postRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
-    // Cria usuário no Postgres
+    public boolean isEmailRegistered(String email) {
+        return userRepository.findByEmail(email) != null;
+    }
+
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        User user = userRepository.findByEmail(username);
+        if (user == null) {
+            throw new UsernameNotFoundException("Usuário não encontrado com o email: " + username);
+        }
+        return user;
+    }
+
+    // --- MÉTODOS DE NEGÓCIO ---
+
     public User createUser(User user) {
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
         return userRepository.save(user);
     }
 
-    // Busca usuário (Primeiro no Redis, se não achar, vai no Postgres)
     @Cacheable(value = "users", key = "#id")
     public User getUserById(Long id) {
-        System.out.println("Buscando usuário no banco de dados (não estava no cache)...");
+        // System.out.println("Buscando usuário no banco de dados...");
         return userRepository.findById(id);
     }
 
-    public boolean isFollowing(Long followerId, Long followedId) {
-        return followRepository.isFollowing(followerId, followedId);
-    }
-
-    public void unfollow(Long followerId, Long followedId) {
-        // CORRETO: Chama o método DELETE no repositório
-        followRepository.unfollowUser(followerId, followedId);
-    }
-
-    // Atualiza usuário no Postgres e atualiza o Cache Redis com o novo valor
     @CachePut(value = "users", key = "#user.id")
     public User updateUser(User user) {
         return userRepository.update(user);
@@ -61,27 +73,30 @@ public class UserService {
         userRepository.updateCampus(userId, campusId);
     }
 
-    // Lógica de Seguir
+    // --- SEGUIR / FOLLOW ---
+
+    public boolean isFollowing(Long followerId, Long followedId) {
+        return followRepository.isFollowing(followerId, followedId);
+    }
+
     public void follow(Long followerId, Long followedId) {
         followRepository.followUser(followerId, followedId);
     }
 
-    // Lista de quem o usuário segue (usado para o Feed de Amigos)
+    public void unfollow(Long followerId, Long followedId) {
+        followRepository.unfollowUser(followerId, followedId);
+    }
+
     public List<Long> getFollowingIds(Long userId) {
         return followRepository.getFollowingIds(userId);
     }
 
-    public User login(String email) {
-        User user = userRepository.findByEmail(email);
-        if (user == null) throw new RuntimeException("Usuário não encontrado.");
-        return user;
-    }
+    // --- GERAL ---
 
     public List<User> getAllUsers() {
         return userRepository.findAll();
     }
 
-    // Monta o Perfil Completo juntando dados do Postgres e do Mongo
     public UserProfileDTO getUserProfile(Long userId) {
         User user = userRepository.findById(userId);
 
@@ -91,19 +106,8 @@ public class UserService {
 
         int followers = followRepository.countFollowers(userId);
         int following = followRepository.countFollowing(userId);
-
         long posts = postRepository.countByUserId(userId);
 
         return new UserProfileDTO(user, followers, following, posts);
-    }
-
-    public List<User> getFollowers(Long userId) {
-        // Precisamos criar este método no followRepository que faz o JOIN com a tabela users
-        return followRepository.getFollowersList(userId);
-    }
-
-    public List<User> getFollowing(Long userId) {
-        // Precisamos criar este método no followRepository que faz o JOIN com a tabela users
-        return followRepository.getFollowingList(userId);
     }
 }

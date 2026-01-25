@@ -3,3 +3,5 @@ databaseChangeLog:
       file: db/changelog/releases/v1.0.0/01-initial-schema.yaml
   - include:
       file: db/changelog/releases/v1.0.0/02-create-functions.yaml
+  - include:
+      file: db/changelog/releases/v1.0.0/03-add-password-column.yaml

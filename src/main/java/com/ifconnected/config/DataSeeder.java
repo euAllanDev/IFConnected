@@ -19,8 +19,6 @@ import java.util.List;
 @Configuration
 public class DataSeeder {
 
-    // Classe interna simples para mapear o JSON (DTO temporário)
-    // Precisa ser static para o Jackson instanciar
     static class CampusJson {
         public String name;
         public double lat;
@@ -30,12 +28,10 @@ public class DataSeeder {
     @Bean
     CommandLineRunner initDatabase(CampusRepository repository) {
         return args -> {
-            // Só roda se o banco estiver vazio para não duplicar
             if (repository.count() == 0) {
                 System.out.println("📦 Iniciando carga de dados dos Campi via JSON...");
 
                 try {
-                    // 1. Ler o arquivo campuses.json da pasta resources
                     ObjectMapper mapper = new ObjectMapper();
                     TypeReference<List<CampusJson>> typeReference = new TypeReference<>() {};
                     InputStream inputStream = TypeReference.class.getResourceAsStream("/campuses.json");
@@ -47,12 +43,9 @@ public class DataSeeder {
 
                     List<CampusJson> campusList = mapper.readValue(inputStream, typeReference);
 
-                    // 2. Preparar a fábrica de geometria (SRID 4326 = GPS)
                     GeometryFactory factory = new GeometryFactory(new PrecisionModel(), 4326);
 
-                    // 3. Iterar e Salvar no Banco
                     for (CampusJson c : campusList) {
-                        // Atenção: Point usa (Longitude, Latitude) -> (X, Y)
                         Point p = factory.createPoint(new Coordinate(c.lon, c.lat));
 
                         Campus campus = new Campus(c.name, p);

@@ -5,13 +5,14 @@ import com.ifconnected.model.DTO.UserProfileDTO;
 import com.ifconnected.model.JDBC.User;
 import com.ifconnected.model.JPA.Event;
 import com.ifconnected.model.JPA.Project;
-import com.ifconnected.model.NOSQL.Notification; // Import Notification
+import com.ifconnected.model.NOSQL.Notification;
 import com.ifconnected.model.NOSQL.Post;
 
 import com.ifconnected.repository.mongo.PostRepository;
 import com.ifconnected.service.*;
 
 import org.springframework.http.MediaType;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -27,12 +28,10 @@ public class IfConnectedController {
     private final MinioService minioService;
     private final GeoFeedService geoFeedService;
     private final EventService eventService;
-    private final NotificationService notificationService; // Novo Serviço
-    private final CampusService campusService; // <--- NOVA INJEÇÃO
+    private final NotificationService notificationService;
+    private final CampusService campusService;
     private final ProjectService projectService;
 
-
-    // CONSTRUTOR ÚNICO (Atualizado com NotificationService)
     public IfConnectedController(UserService userService,
                                  PostRepository postRepository,
                                  MinioService minioService,
@@ -52,26 +51,22 @@ public class IfConnectedController {
         this.projectService = projectService;
     }
 
+    // --- LEITURAS GERAIS ---
+
     @GetMapping("/users")
     public List<User> getAllUsers() {
         return userService.getAllUsers();
     }
-
-
 
     @GetMapping("/campus")
     public List<CampusDTO> getAllCampuses() {
         return campusService.getAll();
     }
 
-    // --- LOGIN & AUTH ---
+    // --- (REMOVIDO) LOGIN e CREATE USER ---
+    // Motivo: Agora eles ficam no AuthenticationController (/auth/login e /auth/register)
 
-    @PostMapping("/login")
-    public User login(@RequestBody User loginData) {
-        return userService.login(loginData.getEmail());
-    }
-
-    // --- USUÁRIOS & SEGUIR ---
+    // --- PERFIL E SEGUIR ---
 
     @GetMapping("/users/{followerId}/isFollowing/{followedId}")
     public boolean isFollowing(@PathVariable Long followerId, @PathVariable Long followedId) {
@@ -87,20 +82,15 @@ public class IfConnectedController {
     public void followUser(@PathVariable Long followerId, @PathVariable Long followedId) {
         userService.follow(followerId, followedId);
 
-        // --- GATILHO NOTIFICAÇÃO: FOLLOW ---
+        // Notificação de Follow
         User follower = userService.getUserById(followerId);
         notificationService.createNotification(
-                followedId,             // Quem recebe (o seguido)
-                followerId,             // Quem enviou (o seguidor)
-                follower.getUsername(), // Nome de quem seguiu
+                followedId,
+                followerId,
+                follower.getUsername(),
                 "FOLLOW",
                 null
         );
-    }
-
-    @PostMapping("/users")
-    public User createUser(@RequestBody User user) {
-        return userService.createUser(user);
     }
 
     @GetMapping("/users/{id}")
@@ -180,23 +170,19 @@ public class IfConnectedController {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new RuntimeException("Post não encontrado"));
 
-        // Garante que a lista existe (embora a classe Post agora já garanta)
         if(post.getComments() == null) {
             post.setComments(new ArrayList<>());
         }
 
-        // Força a data e o ID no momento da adição para garantir unicidade
         comment.setPostedAt(java.time.LocalDateTime.now());
         if (comment.getCommentId() == null) {
             comment.setCommentId(java.util.UUID.randomUUID().toString());
         }
 
         post.getComments().add(comment);
-
-        // Salva primeiro para garantir consistência
         Post savedPost = postRepository.save(post);
 
-        // Notificação
+        // Notificação Comment
         if (!post.getUserId().equals(comment.getUserId())) {
             User sender = userService.getUserById(comment.getUserId());
             notificationService.createNotification(
@@ -219,12 +205,10 @@ public class IfConnectedController {
         if (likes == null) likes = new ArrayList<>();
 
         if (likes.contains(userId)) {
-            likes.remove(userId); // Descurtiu
+            likes.remove(userId);
         } else {
-            likes.add(userId); // Curtiu
-
-            // --- GATILHO NOTIFICAÇÃO: LIKE ---
-            // Só notifica se não for o dono curtindo o próprio post
+            likes.add(userId);
+            // Notificação Like
             if (!post.getUserId().equals(userId)) {
                 User sender = userService.getUserById(userId);
                 notificationService.createNotification(
@@ -284,6 +268,16 @@ public class IfConnectedController {
         eventService.toggleParticipation(id, userId, false);
     }
 
+    @PutMapping("/events/{id}")
+    public Event updateEvent(@PathVariable Long id, @RequestBody Event event) {
+        return eventService.updateEvent(id, event);
+    }
+
+    @DeleteMapping("/events/{id}")
+    public void deleteEvent(@PathVariable Long id) {
+        eventService.deleteEvent(id);
+    }
+
     // --- NOTIFICAÇÕES (MongoDB) ---
 
     @GetMapping("/notifications/user/{userId}")
@@ -301,15 +295,7 @@ public class IfConnectedController {
         return notificationService.getUnreadCount(userId);
     }
 
-    @PutMapping("/events/{id}")
-    public Event updateEvent(@PathVariable Long id, @RequestBody Event event) {
-        return eventService.updateEvent(id, event);
-    }
-
-    @DeleteMapping("/events/{id}")
-    public void deleteEvent(@PathVariable Long id) {
-        eventService.deleteEvent(id);
-    }
+    // --- PROJETOS ---
 
     @GetMapping("/users/{userId}/projects")
     public List<Project> getUserProjects(@PathVariable Long userId) {
@@ -371,4 +357,10 @@ public class IfConnectedController {
 
         return projectService.update(id, projectUpdates);
     }
+
+    @GetMapping("/me")
+    public User me(Authentication authentication) {
+        return (User) authentication.getPrincipal();
+    }
+
 }
