@@ -8,7 +8,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -26,11 +25,9 @@ public class SecurityFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getServletPath();
-
         return path.startsWith("/auth")
-                || path.startsWith("/swagger-ui")
-                || path.startsWith("/v3/api-docs")
-                || path.startsWith("/swagger-ui.html");
+                || path.startsWith("/swagger")
+                || path.startsWith("/v3/api-docs");
     }
 
     @Override
@@ -43,19 +40,20 @@ public class SecurityFilter extends OncePerRequestFilter {
         var token = recoverToken(request);
 
         if (token != null) {
-            var login = tokenService.validateToken(token);
+            var email = tokenService.validateToken(token);
 
-            if (login != null && !login.isBlank()) {
-                var user = userRepository.findByEmail(login);
+            if (email != null && !email.isBlank()) {
+                var user = userRepository.findByEmail(email);
 
                 if (user != null) {
-                    var principal = new com.ifconnected.security.UserPrincipal(user);
+                    var principal = new UserLoginInfo(user);
 
                     var authentication = new UsernamePasswordAuthenticationToken(
                             principal,
                             null,
                             principal.getAuthorities()
                     );
+
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                 }
             }

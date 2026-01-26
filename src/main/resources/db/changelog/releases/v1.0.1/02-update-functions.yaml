@@ -1,0 +1,28 @@
+databaseChangeLog:
+  - changeSet:
+      id: v1-0-1-update-create-user-function
+      author: paulogx77
+      runOnChange: true
+      changes:
+        - sql:
+            splitStatements: false
+            stripComments: false
+            sql: |
+              CREATE OR REPLACE FUNCTION create_user(
+                  p_username VARCHAR,
+                  p_email VARCHAR,
+                  p_password VARCHAR,
+                  p_bio TEXT,
+                  p_image VARCHAR,
+                  p_campus_id BIGINT
+              )
+              RETURNS BIGINT AS $$
+              DECLARE new_id BIGINT;
+              BEGIN
+                  INSERT INTO users (username, email, password, bio, profile_image_url, campus_id)
+                  VALUES (p_username, p_email, p_password, p_bio, p_image, p_campus_id)
+                  RETURNING id INTO new_id;
+
+                  RETURN new_id;
+              END;
+              $$ LANGUAGE plpgsql;

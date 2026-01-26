@@ -1,0 +1,43 @@
+databaseChangeLog:
+  - changeSet:
+      id: v1-0-1-fix-usernames-null-duplicates
+      author: paulogx77
+      changes:
+        - sql:
+            splitStatements: false
+            stripComments: false
+            sql: |
+              -- 1) Se username estiver NULL ou vazio, usa o começo do email
+              UPDATE users
+              SET username = split_part(email, '@', 1)
+              WHERE username IS NULL OR btrim(username) = '';
+
+              -- 2) Se ainda existir duplicidade de username, torna único usando _{id}
+              WITH ranked AS (
+                SELECT id,
+                       username,
+                       ROW_NUMBER() OVER (PARTITION BY username ORDER BY id) AS rn
+                FROM users
+              )
+              UPDATE users u
+              SET username = u.username || '_' || u.id
+              FROM ranked r
+              WHERE u.id = r.id AND r.rn > 1;
+
+  - changeSet:
+      id: v1-0-1-username-not-null
+      author: paulogx77
+      changes:
+        - addNotNullConstraint:
+            tableName: users
+            columnName: username
+            columnDataType: VARCHAR(255)
+
+  - changeSet:
+      id: v1-0-1-username-unique
+      author: paulogx77
+      changes:
+        - addUniqueConstraint:
+            tableName: users
+            columnNames: username
+            constraintName: uq_users_username

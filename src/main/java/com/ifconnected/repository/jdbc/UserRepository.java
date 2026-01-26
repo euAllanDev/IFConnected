@@ -97,15 +97,14 @@ public class UserRepository {
 
     public User update(User user) {
         String sql = """
-            UPDATE users
-            SET username = ?, email = ?, bio = ?, profile_image_url = ?, campus_id = ?
-            WHERE id = ?
-        """;
+        UPDATE users
+        SET username = ?, bio = ?, profile_image_url = ?, campus_id = ?
+        WHERE id = ?
+    """;
 
         jdbc.update(
                 sql,
                 user.getUsername(),
-                user.getEmail(),
                 user.getBio(),
                 user.getProfileImageUrl(),
                 user.getCampusId(),
@@ -114,6 +113,7 @@ public class UserRepository {
 
         return user;
     }
+
 
     public void updateCampus(Long userId, Long campusId) {
         jdbc.update(
@@ -154,5 +154,19 @@ public class UserRepository {
         args.add(myId);
 
         return jdbc.query(sql, userRowMapper, args.toArray());
+    }
+
+    public boolean existsByUsername(String username) {
+        String sql = "SELECT EXISTS (SELECT 1 FROM users WHERE username = ?)";
+        return Boolean.TRUE.equals(jdbc.queryForObject(sql, Boolean.class, username));
+    }
+
+    public boolean existsByUsernameAndIdNot(String username, Long id) {
+        String sql = "SELECT EXISTS (SELECT 1 FROM users WHERE username = ? AND id <> ?)";
+        return Boolean.TRUE.equals(jdbc.queryForObject(sql, Boolean.class, username, id));
+    }
+
+    public void updateProfileImage(Long userId, String imageUrl) {
+        jdbc.update("UPDATE users SET profile_image_url = ? WHERE id = ?", imageUrl, userId);
     }
 }

@@ -5,3 +5,7 @@ databaseChangeLog:
       file: db/changelog/releases/v1.0.0/02-create-functions.yaml
   - include:
       file: db/changelog/releases/v1.0.0/03-add-password-column.yaml
+  - include:
+      file: db/changelog/releases/v1.0.1/01-users-username-unique.yaml
+  - include:
+      file: db/changelog/releases/v1.0.1/02-update-functions.yaml

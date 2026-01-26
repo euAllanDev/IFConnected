@@ -10,11 +10,11 @@ import java.util.Collection;
 import java.util.List;
 
 @Getter
-public class UserPrincipal implements UserDetails {
+public class UserLoginInfo implements UserDetails {
 
     private final User user;
 
-    public UserPrincipal(User user) {
+    public UserLoginInfo(User user) {
         this.user = user;
     }
 
@@ -22,8 +22,14 @@ public class UserPrincipal implements UserDetails {
         return user.getId();
     }
 
-    public String getDisplayName() {
+    // ✅ username do perfil (handle)
+    public String getDisplayUsername() {
         return user.getUsername();
+    }
+
+    // ✅ email real
+    public String getEmail() {
+        return user.getEmail();
     }
 
     @Override
@@ -36,7 +42,8 @@ public class UserPrincipal implements UserDetails {
         return user.getPassword();
     }
 
-    // login (email)
+    // ✅ Spring Security usa isso como "username" de autenticação
+    // e aqui deve ser o EMAIL porque login é por email
     @Override
     public String getUsername() {
         return user.getEmail();

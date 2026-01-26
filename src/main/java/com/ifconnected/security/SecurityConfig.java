@@ -51,6 +51,10 @@ public class SecurityConfig {
 
                         // Preflight do browser
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        // ✅ projetos públicos (leitura)
+                        .requestMatchers(HttpMethod.GET, "/api/users/*/projects").permitAll()
+                        // se tiver endpoint de project por id:
+                        .requestMatchers(HttpMethod.GET, "/api/projects/**").permitAll()
 
                         // Auth
                         .requestMatchers(HttpMethod.POST, "/auth/**").permitAll()

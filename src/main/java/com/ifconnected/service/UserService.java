@@ -7,9 +7,8 @@ import com.ifconnected.model.JDBC.User;
 import com.ifconnected.repository.jdbc.FollowRepository;
 import com.ifconnected.repository.jdbc.UserRepository;
 import com.ifconnected.repository.mongo.PostRepository;
-import com.ifconnected.security.UserPrincipal;
+import com.ifconnected.security.UserLoginInfo;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -40,36 +39,29 @@ public class UserService implements UserDetailsService {
         this.passwordEncoder = passwordEncoder;
     }
 
-    // ✅ usado no register pra não disparar exception
     public boolean isEmailRegistered(String email) {
         return userRepository.findByEmail(email) != null;
     }
 
-    // ✅ Spring Security usa isso no login
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         User user = userRepository.findByEmail(email);
         if (user == null) {
             throw new UsernameNotFoundException("Usuário não encontrado com o email: " + email);
         }
-        return new UserPrincipal(user);
+        return new UserLoginInfo(user);
     }
 
-    // ✅ Register
     public UserResponseDTO createUser(User user) {
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         User saved = userRepository.save(user);
         return toResponseDTO(saved);
     }
 
-    // --- ENTIDADE (uso interno) ---
-
     @Cacheable(value = "users", key = "#id")
     public User getUserEntityById(Long id) {
         return userRepository.findById(id);
     }
-
-    // --- DTO (uso externo/front) ---
 
     public UserResponseDTO getUserById(Long id) {
         User user = getUserEntityById(id);
@@ -77,11 +69,6 @@ public class UserService implements UserDetailsService {
         return toResponseDTO(user);
     }
 
-    public List<UserResponseDTO> getAllUsersDTO() {
-        return userRepository.findAll().stream().map(this::toResponseDTO).toList();
-    }
-
-    // ✅ update via DTO (seguro)
     @CacheEvict(value = "users", key = "#id")
     public UserResponseDTO updateUser(Long id, UpdateUserDTO dto) {
         User existing = userRepository.findById(id);
@@ -101,19 +88,22 @@ public class UserService implements UserDetailsService {
         return toResponseDTO(updated);
     }
 
-    // ✅ para upload de foto ou updates internos (entidade -> DTO)
-    @CacheEvict(value = "users", key = "#user.id")
-    public UserResponseDTO updateUserEntity(User user) {
-        User updated = userRepository.update(user);
-        return toResponseDTO(updated);
+    @CacheEvict(value = "users", key = "#userId")
+    public UserResponseDTO updateProfileImage(Long userId, String imageUrl) {
+        User existing = userRepository.findById(userId);
+        if (existing == null) throw new RuntimeException("Usuário não encontrado");
+
+        userRepository.updateProfileImage(userId, imageUrl);
+
+        // atualiza o objeto em memória (opcional, mas ajuda consistência)
+        existing.setProfileImageUrl(imageUrl);
+        return toResponseDTO(existing);
     }
 
     @CacheEvict(value = "users", key = "#userId")
     public void updateCampus(Long userId, Long campusId) {
         userRepository.updateCampus(userId, campusId);
     }
-
-    // --- FOLLOW ---
 
     public boolean isFollowing(Long followerId, Long followedId) {
         return followRepository.isFollowing(followerId, followedId);
@@ -131,7 +121,9 @@ public class UserService implements UserDetailsService {
         return followRepository.getFollowingIds(userId);
     }
 
-    // --- PROFILE ---
+    public List<UserResponseDTO> getAllUsers() {
+        return userRepository.findAll().stream().map(this::toResponseDTO).toList();
+    }
 
     public UserProfileDTO getUserProfile(Long userId) {
         User user = userRepository.findById(userId);
@@ -141,24 +133,17 @@ public class UserService implements UserDetailsService {
         int following = followRepository.countFollowing(userId);
         long posts = postRepository.countByUserId(userId);
 
-        // ✅ seu UserProfileDTO agora usa UserResponseDTO
         return new UserProfileDTO(toResponseDTO(user), followers, following, posts);
     }
 
-    // --- MAPPER ---
-
-    private UserResponseDTO toResponseDTO(User user) {
+    public UserResponseDTO toResponseDTO(User user) {
         return new UserResponseDTO(
                 user.getId(),
-                user.getUsername(),        // ✅ username normal (nome)
-                user.getEmail(),           // ✅ email separado
+                user.getUsername(),
+                user.getEmail(),
                 user.getBio(),
                 user.getProfileImageUrl(),
                 user.getCampusId()
         );
-    }
-
-    public UserResponseDTO toUserResponse(User user) {
-        return toResponseDTO(user);
     }
 }
