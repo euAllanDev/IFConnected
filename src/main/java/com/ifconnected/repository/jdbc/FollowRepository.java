@@ -1,7 +1,7 @@
 package com.ifconnected.repository.jdbc;
 
 import com.ifconnected.model.JDBC.User;
-import com.ifconnected.mapper.UserRowMapper; // Certifique-se que este import está correto no seu projeto
+import com.ifconnected.mapper.UserRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -14,21 +14,16 @@ public class FollowRepository {
 
     public FollowRepository(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
-        // initializeTable() REMOVIDO -> O Liquibase cuida disso agora
     }
 
     public void followUser(Long followerId, Long followedId) {
-        String sql = """
-            INSERT INTO follows (follower_id, followed_id) 
-            VALUES (?, ?) 
-            ON CONFLICT DO NOTHING
-        """;
-        jdbc.update(sql, followerId, followedId);
+        // chama função do banco (PL/pgSQL)
+        jdbc.queryForObject("SELECT follow_user(?, ?)", Object.class, followerId, followedId);
     }
 
     public void unfollowUser(Long followerId, Long followedId) {
-        String sql = "DELETE FROM follows WHERE follower_id = ? AND followed_id = ?";
-        jdbc.update(sql, followerId, followedId);
+        // chama função do banco (PL/pgSQL)
+        jdbc.queryForObject("SELECT unfollow_user(?, ?)", Object.class, followerId, followedId);
     }
 
     public boolean isFollowing(Long followerId, Long followedId) {
@@ -54,12 +49,9 @@ public class FollowRepository {
         return count != null ? count : 0;
     }
 
-    // --- MÉTODOS DE LISTAGEM (Unificados) ---
-
     public List<User> getFollowersList(Long userId) {
-        // Quem segue o usuário (follower_id) onde o followed_id é o usuário alvo
         String sql = """
-            SELECT u.* 
+            SELECT u.*
             FROM users u
             INNER JOIN follows f ON u.id = f.follower_id
             WHERE f.followed_id = ?
@@ -68,9 +60,8 @@ public class FollowRepository {
     }
 
     public List<User> getFollowingList(Long userId) {
-        // Quem o usuário segue (followed_id) onde o follower_id é o usuário alvo
         String sql = """
-            SELECT u.* 
+            SELECT u.*
             FROM users u
             INNER JOIN follows f ON u.id = f.followed_id
             WHERE f.follower_id = ?

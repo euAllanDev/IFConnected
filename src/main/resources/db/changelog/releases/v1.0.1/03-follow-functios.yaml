@@ -1,0 +1,29 @@
+databaseChangeLog:
+  - changeSet:
+      id: v1-0-1-follow-unfollow-functions
+      author: paulogx77
+      runOnChange: true
+      changes:
+        - sql:
+            splitStatements: false
+            stripComments: false
+            sql: |
+              -- Melhorado: atômico com ON CONFLICT
+              CREATE OR REPLACE FUNCTION follow_user(p_follower BIGINT, p_followed BIGINT)
+              RETURNS VOID AS $$
+              BEGIN
+                  INSERT INTO follows (follower_id, followed_id)
+                  VALUES (p_follower, p_followed)
+                  ON CONFLICT DO NOTHING;
+              END;
+              $$ LANGUAGE plpgsql;
+
+              -- Novo: unfollow via função
+              CREATE OR REPLACE FUNCTION unfollow_user(p_follower BIGINT, p_followed BIGINT)
+              RETURNS VOID AS $$
+              BEGIN
+                  DELETE FROM follows
+                  WHERE follower_id = p_follower
+                    AND followed_id = p_followed;
+              END;
+              $$ LANGUAGE plpgsql;

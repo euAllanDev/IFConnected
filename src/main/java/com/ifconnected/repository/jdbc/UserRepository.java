@@ -65,11 +65,7 @@ public class UserRepository {
     // --- SAVE ---
 
     public User save(User user) {
-        String sql = """
-            INSERT INTO users (username, email, password, bio, profile_image_url, campus_id)
-            VALUES (?, ?, ?, ?, ?, ?)
-            RETURNING id
-        """;
+        String sql = "SELECT create_user(?, ?, ?, ?, ?, ?)";
 
         try {
             Long id = jdbc.queryForObject(

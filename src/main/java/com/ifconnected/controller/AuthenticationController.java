@@ -52,7 +52,6 @@ public class AuthenticationController {
             @ApiResponse(responseCode = "401", description = "Email ou senha inválidos", content = @Content),
             @ApiResponse(responseCode = "400", description = "Requisição inválida", content = @Content)
     })
-
     @PostMapping("/login")
     public ResponseEntity<LoginResponseDTO> login(@RequestBody LoginDTO data) {
 
