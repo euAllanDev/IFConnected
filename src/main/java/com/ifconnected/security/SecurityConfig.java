@@ -62,6 +62,8 @@ public class SecurityConfig {
                         // Campus público
                         .requestMatchers(HttpMethod.GET, "/api/campus/**").permitAll()
 
+                        .requestMatchers(HttpMethod.GET, "/api/opportunities/**").permitAll()
+
                         // Swagger / OpenAPI
                         .requestMatchers(
                                 "/v3/api-docs/**",

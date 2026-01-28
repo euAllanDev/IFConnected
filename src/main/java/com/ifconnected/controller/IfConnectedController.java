@@ -7,6 +7,7 @@ import com.ifconnected.model.DTO.UserProfileDTO;
 import com.ifconnected.model.DTO.UserResponseDTO;
 import com.ifconnected.model.JDBC.User;
 import com.ifconnected.model.JPA.Event;
+import com.ifconnected.model.JPA.Opportunity;
 import com.ifconnected.model.JPA.Project;
 import com.ifconnected.model.NOSQL.Notification;
 import com.ifconnected.model.NOSQL.Post;
@@ -18,7 +19,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 
@@ -45,7 +45,9 @@ public class IfConnectedController {
     private final NotificationService notificationService;
     private final CampusService campusService;
     private final ProjectService projectService;
+    private final OpportunityService opportunityService;
 
+    // CONSTRUTOR COMPLETO (Injeção de Dependência)
     public IfConnectedController(
             UserService userService,
             PostRepository postRepository,
@@ -54,7 +56,8 @@ public class IfConnectedController {
             EventService eventService,
             NotificationService notificationService,
             CampusService campusService,
-            ProjectService projectService
+            ProjectService projectService,
+            OpportunityService opportunityService // <--- Adicionado
     ) {
         this.userService = userService;
         this.postRepository = postRepository;
@@ -64,6 +67,7 @@ public class IfConnectedController {
         this.notificationService = notificationService;
         this.campusService = campusService;
         this.projectService = projectService;
+        this.opportunityService = opportunityService; // <--- Inicializado
     }
 
     // =========================
@@ -463,14 +467,7 @@ public class IfConnectedController {
     }
 
     private UserResponseDTO toUserResponseDTO(User user) {
-        return new UserResponseDTO(
-                user.getId(),
-                user.getUsername(),
-                user.getEmail(),
-                user.getBio(),
-                user.getProfileImageUrl(),
-                user.getCampusId()
-        );
+        return new UserResponseDTO(user);
     }
 
     // =========================
@@ -691,5 +688,35 @@ public class IfConnectedController {
         }
 
         return projectService.update(id, projectUpdates);
+    }
+
+    // --- OPORTUNIDADES (JPA DAO) ---
+
+    @Operation(summary = "Listar oportunidades", tags = {"Opportunities"})
+    @GetMapping("/opportunities")
+    public List<Opportunity> listOpportunities() {
+        // CORREÇÃO: Chama o método getAll() do opportunityService
+        return opportunityService.getAll();
+    }
+
+    @Operation(summary = "Criar oportunidade (Admin)", tags = {"Opportunities"})
+    @PostMapping("/opportunities")
+    public void createOpportunity(
+            @RequestBody Opportunity opportunity,
+            @Parameter(description = "ID do usuário (precisa ser admin)", example = "1")
+            @RequestParam Long userId
+    ) {
+        opportunityService.createOpportunity(opportunity, userId);
+    }
+
+    @Operation(summary = "Deletar oportunidade (Admin)", tags = {"Opportunities"})
+    @DeleteMapping("/opportunities/{id}")
+    public void deleteOpportunity(
+            @Parameter(description = "ID da oportunidade", example = "5")
+            @PathVariable Long id,
+            @Parameter(description = "ID do usuário (precisa ser admin)", example = "1")
+            @RequestParam Long userId
+    ) {
+        opportunityService.deleteOpportunity(id, userId);
     }
 }

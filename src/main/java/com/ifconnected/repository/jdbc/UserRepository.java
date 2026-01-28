@@ -74,25 +74,35 @@ public class UserRepository {
 
     // --- SAVE ---
 
+    // --- SAVE ---
+
     public User save(User user) {
-        // Assume que a função no banco é: create_user(username, email, password, bio, image, campus_id)
-        String sql = "SELECT create_user(?, ?, ?, ?, ?, ?)";
+        // CORREÇÃO: Usamos INSERT direto com 7 campos (username, email, password, bio, image, campus, role)
+        // Isso substitui a chamada antiga "SELECT create_user..." que tinha menos campos.
+        String sql = """
+            INSERT INTO users (username, email, password, bio, profile_image_url, campus_id, role)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            RETURNING id
+        """;
 
         try {
             Long id = jdbc.queryForObject(
                     sql,
                     Long.class,
-                    user.getUsername(),
-                    user.getEmail(),
-                    user.getPassword(),
-                    user.getBio(),
-                    user.getProfileImageUrl(),
-                    user.getCampusId()
+                    user.getUsername(),      // 1
+                    user.getEmail(),         // 2
+                    user.getPassword(),      // 3
+                    user.getBio(),           // 4
+                    user.getProfileImageUrl(),// 5
+                    user.getCampusId(),      // 6
+                    user.getRole()           // 7
             );
 
             user.setId(id);
-            // Define o padrão se não vier preenchido, para o objeto ficar consistente na memória
+
+            // Garante que o objeto retornado tenha o role preenchido
             if (user.getRole() == null) user.setRole("STUDENT");
+
             return user;
 
         } catch (DuplicateKeyException e) {

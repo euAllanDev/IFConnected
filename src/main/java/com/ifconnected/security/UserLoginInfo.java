@@ -1,15 +1,13 @@
 package com.ifconnected.security;
 
 import com.ifconnected.model.JDBC.User;
-import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
-import java.util.List;
+import java.util.Collections;
 
-@Getter
 public class UserLoginInfo implements UserDetails {
 
     private final User user;
@@ -18,23 +16,35 @@ public class UserLoginInfo implements UserDetails {
         this.user = user;
     }
 
+    // --- Métodos Extras (Úteis para o Controller) ---
+
     public Long getId() {
         return user.getId();
     }
 
-    // ✅ username do perfil (handle)
-    public String getDisplayUsername() {
-        return user.getUsername();
+    public User getUser() {
+        return user;
     }
 
-    // ✅ email real
     public String getEmail() {
         return user.getEmail();
     }
 
+    // ✅ CORREÇÃO: Adicionado para resolver o erro no AuthenticationController
+    public String getDisplayUsername() {
+        return user.getUsername();
+    }
+
+    // --- Métodos Obrigatórios do UserDetails ---
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority("ROLE_USER"));
+        String roleName = user.getRole() == null ? "STUDENT" : user.getRole();
+        // Garante o prefixo ROLE_ exigido pelo Spring Security
+        if (!roleName.startsWith("ROLE_")) {
+            roleName = "ROLE_" + roleName;
+        }
+        return Collections.singletonList(new SimpleGrantedAuthority(roleName));
     }
 
     @Override
@@ -42,15 +52,20 @@ public class UserLoginInfo implements UserDetails {
         return user.getPassword();
     }
 
-    // ✅ Spring Security usa isso como "username" de autenticação
-    // e aqui deve ser o EMAIL porque login é por email
     @Override
     public String getUsername() {
-        return user.getEmail();
+        return user.getEmail(); // O Spring usa isso como identificador principal (Login)
     }
 
-    @Override public boolean isAccountNonExpired() { return true; }
-    @Override public boolean isAccountNonLocked() { return true; }
-    @Override public boolean isCredentialsNonExpired() { return true; }
-    @Override public boolean isEnabled() { return true; }
+    @Override
+    public boolean isAccountNonExpired() { return true; }
+
+    @Override
+    public boolean isAccountNonLocked() { return true; }
+
+    @Override
+    public boolean isCredentialsNonExpired() { return true; }
+
+    @Override
+    public boolean isEnabled() { return true; }
 }
