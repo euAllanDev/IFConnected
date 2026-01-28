@@ -15,28 +15,24 @@ public class UserRowMapper implements RowMapper<User> {
         user.setId(rs.getLong("id"));
         user.setUsername(rs.getString("username"));
         user.setEmail(rs.getString("email"));
+
+        // 🔥 OBRIGATÓRIO: Ler a senha do banco
         user.setPassword(rs.getString("password"));
+
         user.setBio(rs.getString("bio"));
         user.setProfileImageUrl(rs.getString("profile_image_url"));
 
-        // Trata campus_id para aceitar nulo
-        long campusIdVal = rs.getLong("campus_id");
+        long campusId = rs.getLong("campus_id");
         if (!rs.wasNull()) {
-            user.setCampusId(campusIdVal);
-        } else {
-            user.setCampusId(null);
+            user.setCampusId(campusId);
         }
 
-        // Trata o Role (Papel)
         try {
             String role = rs.getString("role");
-            if (role != null) {
-                user.setRole(role);
-            } else {
-                user.setRole("STUDENT"); // Padrão
-            }
+            // Se vier nulo do banco, assume STUDENT
+            user.setRole(role != null ? role : "STUDENT");
         } catch (SQLException e) {
-            user.setRole("STUDENT"); // Se a coluna não existir, assume padrão
+            user.setRole("STUDENT");
         }
 
         return user;

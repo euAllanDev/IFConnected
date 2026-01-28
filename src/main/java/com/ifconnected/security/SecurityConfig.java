@@ -51,9 +51,9 @@ public class SecurityConfig {
 
                         // Preflight do browser
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-
-
+                        // ✅ projetos públicos (leitura)
                         .requestMatchers(HttpMethod.GET, "/api/users/*/projects").permitAll()
+                        // se tiver endpoint de project por id:
                         .requestMatchers(HttpMethod.GET, "/api/projects/**").permitAll()
 
                         // Auth
@@ -61,6 +61,8 @@ public class SecurityConfig {
 
                         // Campus público
                         .requestMatchers(HttpMethod.GET, "/api/campus/**").permitAll()
+
+                        .requestMatchers(HttpMethod.GET, "/api/opportunities/**").permitAll()
 
                         //Achados Perdidos
                         .requestMatchers(HttpMethod.GET, "/api/lost-found/**").permitAll()

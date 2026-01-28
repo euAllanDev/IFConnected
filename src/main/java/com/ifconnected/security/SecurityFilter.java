@@ -12,22 +12,31 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.List;
 
 @Component
 public class SecurityFilter extends OncePerRequestFilter {
 
     @Autowired
-    TokenService tokenService;
+    private TokenService tokenService;
 
     @Autowired
-    UserRepository userRepository;
+    private UserRepository userRepository;
+
+    private static final List<String> PUBLIC_PATHS = List.of(
+            "/api/login",
+            "/api/users"
+    );
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getServletPath();
-        return path.startsWith("/auth")
-                || path.startsWith("/swagger")
-                || path.startsWith("/v3/api-docs");
+
+        return
+                PUBLIC_PATHS.contains(path)
+                        || path.startsWith("/api/auth")
+                        || path.startsWith("/swagger")
+                        || path.startsWith("/v3/api-docs");
     }
 
     @Override
@@ -37,10 +46,10 @@ public class SecurityFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
 
-        var token = recoverToken(request);
+        String token = recoverToken(request);
 
         if (token != null) {
-            var email = tokenService.validateToken(token);
+            String email = tokenService.validateToken(token);
 
             if (email != null && !email.isBlank()) {
                 var user = userRepository.findByEmail(email);
@@ -54,7 +63,9 @@ public class SecurityFilter extends OncePerRequestFilter {
                             principal.getAuthorities()
                     );
 
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                    SecurityContextHolder
+                            .getContext()
+                            .setAuthentication(authentication);
                 }
             }
         }
@@ -63,8 +74,10 @@ public class SecurityFilter extends OncePerRequestFilter {
     }
 
     private String recoverToken(HttpServletRequest request) {
-        var authHeader = request.getHeader("Authorization");
-        if (authHeader == null) return null;
-        return authHeader.replace("Bearer ", "");
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return null;
+        }
+        return authHeader.substring(7);
     }
 }

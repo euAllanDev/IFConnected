@@ -7,106 +7,108 @@ import com.ifconnected.model.JDBC.User;
 import com.ifconnected.repository.jdbc.FollowRepository;
 import com.ifconnected.repository.jdbc.UserRepository;
 import com.ifconnected.repository.mongo.PostRepository;
-import com.ifconnected.security.UserLoginInfo;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.context.annotation.Lazy;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
-public class UserService implements UserDetailsService {
+public class UserService {
 
     private final UserRepository userRepository;
     private final FollowRepository followRepository;
     private final PostRepository postRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public UserService(
-            UserRepository userRepository,
-            FollowRepository followRepository,
-            PostRepository postRepository,
-            @Lazy PasswordEncoder passwordEncoder
-    ) {
+    // --- CONSTRUTOR CORRIGIDO ---
+    public UserService(UserRepository userRepository,
+                       FollowRepository followRepository,
+                       PostRepository postRepository,
+                       PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.followRepository = followRepository;
         this.postRepository = postRepository;
-        this.passwordEncoder = passwordEncoder;
+        this.passwordEncoder = passwordEncoder; // Injeção correta
     }
 
-    public boolean isEmailRegistered(String email) {
-        return userRepository.findByEmail(email) != null;
+    // --- CRIAÇÃO DE USUÁRIO COM CRIPTOGRAFIA ---
+    public UserResponseDTO createUser(User user) {
+        // 1. Log para debug
+        System.out.println(">>> UserService recebeu Role: " + user.getRole());
+
+        // 2. Criptografar Senha
+        String encodedPassword = passwordEncoder.encode(user.getPassword());
+        user.setPassword(encodedPassword);
+
+        // 3. Regra de Negócio: Role Default
+        if (user.getRole() == null || user.getRole().trim().isEmpty()) {
+            user.setRole("STUDENT");
+        }
+
+        // 4. Salvar
+        User savedUser = userRepository.save(user);
+        return new UserResponseDTO(savedUser);
     }
 
-    @Override
-    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+    public UserResponseDTO login(String email) {
         User user = userRepository.findByEmail(email);
         if (user == null) {
-            throw new UsernameNotFoundException("Usuário não encontrado com o email: " + email);
+            throw new RuntimeException("Usuário não encontrado.");
         }
-        return new UserLoginInfo(user);
-    }
-
-    public UserResponseDTO createUser(User user) {
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
-        User saved = userRepository.save(user);
-        return toResponseDTO(saved);
+        // Nota: A validação de senha acontece no Spring Security (CustomUserDetailsService)
+        // Este método serve apenas para retornar os dados do usuário após o login.
+        return new UserResponseDTO(user);
     }
 
     @Cacheable(value = "users", key = "#id")
+    public UserResponseDTO getUserById(Long id) {
+        User user = userRepository.findById(id);
+        if (user == null) {
+            throw new RuntimeException("Usuário não encontrado");
+        }
+        return new UserResponseDTO(user);
+    }
+
+    // Método auxiliar para uso interno (retorna a Entidade com senha/dados sensíveis)
     public User getUserEntityById(Long id) {
         return userRepository.findById(id);
     }
 
-    public UserResponseDTO getUserById(Long id) {
-        User user = getUserEntityById(id);
-        if (user == null) throw new RuntimeException("Usuário não encontrado");
-        return toResponseDTO(user);
+    public List<UserResponseDTO> getAllUsers() {
+        List<User> users = userRepository.findAll();
+        return users.stream()
+                .map(UserResponseDTO::new)
+                .collect(Collectors.toList());
     }
 
     @CacheEvict(value = "users", key = "#id")
     public UserResponseDTO updateUser(Long id, UpdateUserDTO dto) {
-        User existing = userRepository.findById(id);
-        if (existing == null) throw new RuntimeException("Usuário não encontrado");
-
-        if (dto.username() != null && !dto.username().isBlank()) {
-            existing.setUsername(dto.username().trim());
-        }
-        if (dto.bio() != null) {
-            existing.setBio(dto.bio());
-        }
-        if (dto.campusId() != null) {
-            existing.setCampusId(dto.campusId());
+        User existingUser = userRepository.findById(id);
+        if (existingUser == null) {
+            throw new RuntimeException("Usuário não encontrado");
         }
 
-        User updated = userRepository.update(existing);
-        return toResponseDTO(updated);
+        if (dto.getUsername() != null) existingUser.setUsername(dto.getUsername());
+        if (dto.getBio() != null) existingUser.setBio(dto.getBio());
+        if (dto.getCampusId() != null) existingUser.setCampusId(dto.getCampusId());
+
+        User updatedUser = userRepository.update(existingUser);
+        return new UserResponseDTO(updatedUser);
     }
 
-    @CacheEvict(value = "users", key = "#userId")
-    public UserResponseDTO updateProfileImage(Long userId, String imageUrl) {
-        User existing = userRepository.findById(userId);
-        if (existing == null) throw new RuntimeException("Usuário não encontrado");
-
-        userRepository.updateProfileImage(userId, imageUrl);
-
-        // atualiza o objeto em memória (opcional, mas ajuda consistência)
-        existing.setProfileImageUrl(imageUrl);
-        return toResponseDTO(existing);
+    @CacheEvict(value = "users", key = "#id")
+    public UserResponseDTO updateProfileImage(Long id, String imageUrl) {
+        userRepository.updateProfileImage(id, imageUrl);
+        User user = userRepository.findById(id);
+        return new UserResponseDTO(user);
     }
 
     @CacheEvict(value = "users", key = "#userId")
     public void updateCampus(Long userId, Long campusId) {
         userRepository.updateCampus(userId, campusId);
-    }
-
-    public boolean isFollowing(Long followerId, Long followedId) {
-        return followRepository.isFollowing(followerId, followedId);
     }
 
     public void follow(Long followerId, Long followedId) {
@@ -121,8 +123,8 @@ public class UserService implements UserDetailsService {
         return followRepository.getFollowingIds(userId);
     }
 
-    public List<UserResponseDTO> getAllUsers() {
-        return userRepository.findAll().stream().map(this::toResponseDTO).toList();
+    public boolean isFollowing(Long followerId, Long followedId) {
+        return followRepository.isFollowing(followerId, followedId);
     }
 
     public UserProfileDTO getUserProfile(Long userId) {
@@ -133,17 +135,10 @@ public class UserService implements UserDetailsService {
         int following = followRepository.countFollowing(userId);
         long posts = postRepository.countByUserId(userId);
 
-        return new UserProfileDTO(toResponseDTO(user), followers, following, posts);
+        return new UserProfileDTO(new UserResponseDTO(user), followers, following, posts);
     }
 
-    public UserResponseDTO toResponseDTO(User user) {
-        return new UserResponseDTO(
-                user.getId(),
-                user.getUsername(),
-                user.getEmail(),
-                user.getBio(),
-                user.getProfileImageUrl(),
-                user.getCampusId()
-        );
+    public boolean isEmailRegistered(String email) {
+        return userRepository.findByEmail(email) != null;
     }
 }
