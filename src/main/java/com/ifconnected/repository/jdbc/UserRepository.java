@@ -20,22 +20,32 @@ public class UserRepository {
         this.jdbc = jdbc;
     }
 
-    // 🔑 RowMapper CORRETO (inclui password)
+    // 🔑 RowMapper CORRETO (Mapeia tudo, incluindo Role e Password)
     private final RowMapper<User> userRowMapper = (rs, rowNum) -> {
         User user = new User();
+
         user.setId(rs.getLong("id"));
         user.setUsername(rs.getString("username"));
         user.setEmail(rs.getString("email"));
-        user.setPassword(rs.getString("password")); // 🔥 ESSENCIAL
+        user.setPassword(rs.getString("password"));
         user.setBio(rs.getString("bio"));
         user.setProfileImageUrl(rs.getString("profile_image_url"));
 
+        // Trata campus_id para não vir 0 se for nulo
         long campusId = rs.getLong("campus_id");
         if (!rs.wasNull()) {
             user.setCampusId(campusId);
         }
 
-        return user;
+        // Mapeia o papel (ADMIN ou STUDENT)
+        try {
+            String role = rs.getString("role");
+            if (role != null) user.setRole(role);
+        } catch (Exception e) {
+            // Ignora se a coluna não existir em queries antigas
+        }
+
+        return user; // Retorno único (Corrigido erro de duplicação)
     };
 
     // --- BUSCAS ---
@@ -65,6 +75,7 @@ public class UserRepository {
     // --- SAVE ---
 
     public User save(User user) {
+        // Assume que a função no banco é: create_user(username, email, password, bio, image, campus_id)
         String sql = "SELECT create_user(?, ?, ?, ?, ?, ?)";
 
         try {
@@ -80,6 +91,8 @@ public class UserRepository {
             );
 
             user.setId(id);
+            // Define o padrão se não vier preenchido, para o objeto ficar consistente na memória
+            if (user.getRole() == null) user.setRole("STUDENT");
             return user;
 
         } catch (DuplicateKeyException e) {
@@ -93,10 +106,10 @@ public class UserRepository {
 
     public User update(User user) {
         String sql = """
-        UPDATE users
-        SET username = ?, bio = ?, profile_image_url = ?, campus_id = ?
-        WHERE id = ?
-    """;
+            UPDATE users
+            SET username = ?, bio = ?, profile_image_url = ?, campus_id = ?
+            WHERE id = ?
+        """;
 
         jdbc.update(
                 sql,
@@ -110,7 +123,6 @@ public class UserRepository {
         return user;
     }
 
-
     public void updateCampus(Long userId, Long campusId) {
         jdbc.update(
                 "UPDATE users SET campus_id = ? WHERE id = ?",
@@ -119,7 +131,11 @@ public class UserRepository {
         );
     }
 
-    // --- SUGESTÕES ---
+    public void updateProfileImage(Long userId, String imageUrl) {
+        jdbc.update("UPDATE users SET profile_image_url = ? WHERE id = ?", imageUrl, userId);
+    }
+
+    // --- SUGESTÕES & UTILITÁRIOS ---
 
     public List<Long> findUserIdsByCampusIds(List<Long> campusIds) {
         if (campusIds.isEmpty()) return List.of();
@@ -160,9 +176,5 @@ public class UserRepository {
     public boolean existsByUsernameAndIdNot(String username, Long id) {
         String sql = "SELECT EXISTS (SELECT 1 FROM users WHERE username = ? AND id <> ?)";
         return Boolean.TRUE.equals(jdbc.queryForObject(sql, Boolean.class, username, id));
-    }
-
-    public void updateProfileImage(Long userId, String imageUrl) {
-        jdbc.update("UPDATE users SET profile_image_url = ? WHERE id = ?", imageUrl, userId);
     }
 }

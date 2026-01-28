@@ -10,6 +10,6 @@ public interface EventRepository extends JpaRepository<Event, Long> {
 
     List<Event> findByCreatorId(Long creatorId);
 
-    // O JPA cria o SQL sozinho baseado no nome do método!
+
     List<Event> findByCampusIdOrderByEventDateAsc(Long campusId);
 }
