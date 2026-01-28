@@ -1,6 +1,7 @@
 package com.ifconnected.model.JPA;
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
@@ -44,6 +45,17 @@ public class Event {
     )
     @Column(name = "user_id")
     private Set<Long> participantIds = new HashSet<>();
+
+    @JsonIgnore
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "event_participants",
+            joinColumns = @JoinColumn(name = "event_id"),
+            inverseJoinColumns = @JoinColumn(name = "user_id")
+    )
+// impede o Hibernate de tentar escrever por esse relacionamento
+    @org.hibernate.annotations.Immutable
+    private Set<UserEntity> participants = new HashSet<>();
 
 
     public Event(){}
