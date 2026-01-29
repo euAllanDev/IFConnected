@@ -53,7 +53,6 @@ public class Event {
             joinColumns = @JoinColumn(name = "event_id"),
             inverseJoinColumns = @JoinColumn(name = "user_id")
     )
-// impede o Hibernate de tentar escrever por esse relacionamento
     @org.hibernate.annotations.Immutable
     private Set<UserEntity> participants = new HashSet<>();
 

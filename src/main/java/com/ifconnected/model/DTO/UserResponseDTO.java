@@ -13,9 +13,7 @@ public record UserResponseDTO(
         @Schema(example = "1") Long campusId,
         @Schema(example = "STUDENT") String role
 ) {
-    // --- CONSTRUTOR ADICIONAL ---
-    // Permite fazer: new UserResponseDTO(userEntity)
-    // Isso resolve o erro "Expected X arguments but found 1"
+
     public UserResponseDTO(User user) {
         this(
                 user.getId(),

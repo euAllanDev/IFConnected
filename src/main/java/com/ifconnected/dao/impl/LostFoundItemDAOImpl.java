@@ -65,7 +65,7 @@ public class LostFoundItemDAOImpl implements LostFoundItemDAO {
         if (item != null) em.remove(item);
     }
 
-    // ✅ ESTE É O MÉTODO QUE ESTAVA FALTANDO
+
     @Override
     public List<LostFoundItem> findByOwnerId(Long ownerId) {
         return em.createQuery(

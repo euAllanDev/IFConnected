@@ -2,7 +2,7 @@ package com.ifconnected.service;
 
 import com.ifconnected.model.JPA.Opportunity;
 import com.ifconnected.model.JDBC.User;
-import com.ifconnected.repository.dao.OpportunityDAO;
+import com.ifconnected.repository.DAO.OpportunityDAO;
 import org.springframework.stereotype.Service;
 import com.ifconnected.model.JDBC.User;
 
