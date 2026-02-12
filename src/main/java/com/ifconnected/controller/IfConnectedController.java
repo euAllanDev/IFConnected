@@ -258,7 +258,7 @@ public class IfConnectedController {
         return geoFeedService.getPeopleYouMightKnow(id, user.getCampusId(), radiusKm);
     }
 
-    // --- EVENTOS (JPA) ---
+    // --- EVENTOSS (JPA) ---
 
     @PostMapping("/events")
     public Event createEvent(@RequestBody Event event) {
@@ -306,4 +306,6 @@ public class IfConnectedController {
     public void deleteEvent(@PathVariable Long id) {
         eventService.deleteEvent(id);
     }
+
+
 }
