@@ -1,32 +1,30 @@
 package com.ifconnected.model.DTO;
 
-import com.ifconnected.model.JDBC.User;
-
 public class UserProfileDTO {
-    private User user;
+    // Agora usamos o DTO seguro aqui, não a entidade User
+    private UserResponseDTO user;
     private int followersCount;
     private int followingCount;
     private long postCount;
 
-    // --- Construtor Vazio (Necessário para serialização JSON) ---
     public UserProfileDTO() {
     }
 
-    // --- Construtor Completo (Usado pelo UserService) ---
-    public UserProfileDTO(User user, int followersCount, int followingCount, long postCount) {
+    // O construtor agora aceita UserResponseDTO
+    public UserProfileDTO(UserResponseDTO user, int followersCount, int followingCount, long postCount) {
         this.user = user;
         this.followersCount = followersCount;
         this.followingCount = followingCount;
         this.postCount = postCount;
     }
 
-    // --- Getters e Setters Manuais (Sem Lombok) ---
+    // Getters e Setters atualizados
 
-    public User getUser() {
+    public UserResponseDTO getUser() {
         return user;
     }
 
-    public void setUser(User user) {
+    public void setUser(UserResponseDTO user) {
         this.user = user;
     }
 

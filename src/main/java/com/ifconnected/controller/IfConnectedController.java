@@ -1,21 +1,25 @@
 package com.ifconnected.controller;
 
-import com.ifconnected.model.DTO.CampusDTO;
-import com.ifconnected.model.DTO.UserProfileDTO;
+import com.ifconnected.model.DTO.*;
 import com.ifconnected.model.JDBC.User;
 import com.ifconnected.model.JPA.Event;
-import com.ifconnected.model.NOSQL.Notification; // Import Notification
+import com.ifconnected.model.NOSQL.Notification;
 import com.ifconnected.model.NOSQL.Post;
-
 import com.ifconnected.repository.mongo.PostRepository;
+import com.ifconnected.security.TokenService;
+import com.ifconnected.security.UserLoginInfo;
 import com.ifconnected.service.*;
-
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.List;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api")
@@ -26,19 +30,20 @@ public class IfConnectedController {
     private final MinioService minioService;
     private final GeoFeedService geoFeedService;
     private final EventService eventService;
-    private final NotificationService notificationService; // Novo Serviço
-    private final CampusService campusService; // <--- NOVA INJEÇÃO
+    private final NotificationService notificationService;
+    private final CampusService campusService;
+    private final GoogleAuthService googleAuthService;
+    private final TokenService tokenService; // ✅ Adicionado
 
-
-    // CONSTRUTOR ÚNICO (Atualizado com NotificationService)
     public IfConnectedController(UserService userService,
                                  PostRepository postRepository,
                                  MinioService minioService,
                                  GeoFeedService geoFeedService,
                                  EventService eventService,
                                  NotificationService notificationService,
-                                 CampusService campusService
-    ) {
+                                 CampusService campusService,
+                                 GoogleAuthService googleAuthService,
+                                 TokenService tokenService) { // ✅ Adicionado no construtor
         this.userService = userService;
         this.postRepository = postRepository;
         this.minioService = minioService;
@@ -46,28 +51,87 @@ public class IfConnectedController {
         this.eventService = eventService;
         this.notificationService = notificationService;
         this.campusService = campusService;
+        this.googleAuthService = googleAuthService;
+        this.tokenService = tokenService; // ✅ Inicializado
     }
 
+    // --- LOGIN & AUTH ---
+
+    @PostMapping("/login")
+    public UserResponseDTO login(@RequestBody User loginData) {
+        return userService.login(loginData.getEmail());
+    }
+
+    @PostMapping("/auth/google")
+    public ResponseEntity<Map<String, Object>> googleLogin(@RequestBody GoogleLoginDTO dto) {
+        // 1. Valida o token do Google e retorna o User (criado ou buscado)
+        User user = googleAuthService.authenticateGoogleUser(dto.token());
+
+        // 2. Gera o token JWT interno
+        String jwtToken = tokenService.generateToken(new UserLoginInfo(user));
+
+        // 3. Retorna o pacote completo para o Frontend
+        Map<String, Object> response = new HashMap<>();
+        response.put("token", jwtToken);
+        response.put("user", new UserResponseDTO(user));
+
+        return ResponseEntity.ok(response);
+    }
+
+    // --- USUÁRIOS ---
+
     @GetMapping("/users")
-    public List<User> getAllUsers() {
+    public List<UserResponseDTO> getAllUsers() {
         return userService.getAllUsers();
     }
 
+    @PostMapping("/users")
+    public UserResponseDTO createUser(@RequestBody RegisterDTO dto) {
+        User user = new User();
+        user.setUsername(dto.getUsername());
+        user.setEmail(dto.getEmail());
+        user.setPassword(dto.getPassword());
+        user.setBio(dto.getBio());
+        user.setProfileImageUrl(dto.getProfileImageUrl());
+        user.setCampusId(dto.getCampusId());
+        user.setRole(dto.getRole());
+        return userService.createUser(user);
+    }
 
+    @GetMapping("/users/{id}")
+    public UserResponseDTO getUser(@PathVariable Long id) {
+        return userService.getUserById(id);
+    }
+
+    @GetMapping("/users/{id}/profile")
+    public UserProfileDTO getUserProfile(@PathVariable Long id) {
+        return userService.getUserProfile(id);
+    }
+
+    @PutMapping("/users/{id}")
+    public UserResponseDTO updateUser(@PathVariable Long id, @RequestBody UpdateUserDTO dto) {
+        return userService.updateUser(id, dto);
+    }
+
+    @PostMapping(value = "/users/{id}/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public UserResponseDTO uploadProfilePhoto(@PathVariable Long id, @RequestParam("file") MultipartFile file) {
+        String imageUrl = minioService.uploadImage(file);
+        return userService.updateProfileImage(id, imageUrl);
+    }
+
+    @PatchMapping("/users/{id}/campus")
+    public void updateUserCampus(@PathVariable Long id, @RequestBody Long campusId) {
+        userService.updateCampus(id, campusId);
+    }
+
+    // --- CAMPUS ---
 
     @GetMapping("/campus")
     public List<CampusDTO> getAllCampuses() {
         return campusService.getAll();
     }
 
-    // --- LOGIN & AUTH ---
-
-    @PostMapping("/login")
-    public User login(@RequestBody User loginData) {
-        return userService.login(loginData.getEmail());
-    }
-
-    // --- USUÁRIOS & SEGUIR ---
+    // --- SOCIAL & FOLLOW ---
 
     @GetMapping("/users/{followerId}/isFollowing/{followedId}")
     public boolean isFollowing(@PathVariable Long followerId, @PathVariable Long followedId) {
@@ -82,75 +146,32 @@ public class IfConnectedController {
     @PostMapping("/users/{followerId}/follow/{followedId}")
     public void followUser(@PathVariable Long followerId, @PathVariable Long followedId) {
         userService.follow(followerId, followedId);
-
-        // --- GATILHO NOTIFICAÇÃO: FOLLOW ---
-        User follower = userService.getUserById(followerId);
-        notificationService.createNotification(
-                followedId,             // Quem recebe (o seguido)
-                followerId,             // Quem enviou (o seguidor)
-                follower.getUsername(), // Nome de quem seguiu
-                "FOLLOW",
-                null
-        );
+        User follower = userService.getUserEntityById(followerId);
+        notificationService.createNotification(followedId, followerId, follower.getUsername(), "FOLLOW", null);
     }
 
-    @PostMapping("/users")
-    public User createUser(@RequestBody User user) {
-        return userService.createUser(user);
+    @GetMapping("/users/{id}/suggestions")
+    public List<User> getSuggestions(@PathVariable Long id, @RequestParam(defaultValue = "50") double radiusKm) {
+        User user = userService.getUserEntityById(id);
+        if (user.getCampusId() == null) return new ArrayList<>();
+        return geoFeedService.getPeopleYouMightKnow(id, user.getCampusId(), radiusKm);
     }
 
-    @GetMapping("/users/{id}")
-    public User getUser(@PathVariable Long id) {
-        return userService.getUserById(id);
-    }
-
-    @GetMapping("/users/{id}/profile")
-    public UserProfileDTO getUserProfile(@PathVariable Long id) {
-        return userService.getUserProfile(id);
-    }
-
-    @PutMapping("/users/{id}")
-    public User updateUser(@PathVariable Long id, @RequestBody User user) {
-        user.setId(id);
-        return userService.updateUser(user);
-    }
-
-    @PatchMapping("/users/{id}/campus")
-    public void updateUserCampus(@PathVariable Long id, @RequestBody Long campusId) {
-        userService.updateCampus(id, campusId);
-    }
-
-    @PostMapping(value = "/users/{id}/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public User uploadProfilePhoto(@PathVariable Long id, @RequestParam("file") MultipartFile file) {
-        String imageUrl = minioService.uploadImage(file);
-        User user = userService.getUserById(id);
-        user.setProfileImageUrl(imageUrl);
-        return userService.updateUser(user);
-    }
-
-    // --- POSTS (NoSQL) ---
+    // --- POSTS ---
 
     @GetMapping("/posts/{id}")
     public Post getPostById(@PathVariable String id) {
-        return postRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Post não encontrado"));
+        return postRepository.findById(id).orElseThrow(() -> new RuntimeException("Post não encontrado"));
     }
 
     @PostMapping(value = "/posts", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Post createPost(@RequestParam("userId") Long userId,
-                           @RequestParam("content") String content,
-                           @RequestParam(value = "file", required = false) MultipartFile file) {
-
+    public Post createPost(@RequestParam("userId") Long userId, @RequestParam("content") String content, @RequestParam(value = "file", required = false) MultipartFile file) {
         String imageUrl = null;
-        if (file != null && !file.isEmpty()) {
-            imageUrl = minioService.uploadImage(file);
-        }
-
+        if (file != null && !file.isEmpty()) imageUrl = minioService.uploadImage(file);
         Post post = new Post();
         post.setUserId(userId);
         post.setContent(content);
         post.setImageUrl(imageUrl);
-
         return postRepository.save(post);
     }
 
@@ -171,39 +192,25 @@ public class IfConnectedController {
         return postRepository.findByUserId(userId);
     }
 
+    @GetMapping("/posts/feed/regional")
+    public List<Post> getRegionalFeed(@RequestParam Long userId, @RequestParam(defaultValue = "50") double radiusKm) {
+        User user = userService.getUserEntityById(userId);
+        if (user.getCampusId() == null) throw new RuntimeException("Usuário não tem campus vinculado!");
+        return geoFeedService.getNearbyCampusFeed(user.getCampusId(), radiusKm);
+    }
+
     @PostMapping("/posts/{postId}/comments")
     public Post addComment(@PathVariable String postId, @RequestBody Post.Comment comment) {
-        Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new RuntimeException("Post não encontrado"));
-
-        // Garante que a lista existe (embora a classe Post agora já garanta)
-        if(post.getComments() == null) {
-            post.setComments(new ArrayList<>());
-        }
-
-        // Força a data e o ID no momento da adição para garantir unicidade
-        comment.setPostedAt(java.time.LocalDateTime.now());
-        if (comment.getCommentId() == null) {
-            comment.setCommentId(java.util.UUID.randomUUID().toString());
-        }
-
+        Post post = postRepository.findById(postId).orElseThrow(() -> new RuntimeException("Post não encontrado"));
+        if(post.getComments() == null) post.setComments(new ArrayList<>());
+        comment.setPostedAt(LocalDateTime.now());
+        if (comment.getCommentId() == null) comment.setCommentId(UUID.randomUUID().toString());
         post.getComments().add(comment);
-
-        // Salva primeiro para garantir consistência
         Post savedPost = postRepository.save(post);
-
-        // Notificação
         if (!post.getUserId().equals(comment.getUserId())) {
-            User sender = userService.getUserById(comment.getUserId());
-            notificationService.createNotification(
-                    post.getUserId(),
-                    comment.getUserId(),
-                    sender.getUsername(),
-                    "COMMENT",
-                    postId
-            );
+            User sender = userService.getUserEntityById(comment.getUserId());
+            notificationService.createNotification(post.getUserId(), comment.getUserId(), sender.getUsername(), "COMMENT", postId);
         }
-
         return savedPost;
     }
 
@@ -211,57 +218,30 @@ public class IfConnectedController {
     public Post toggleLike(@PathVariable String postId, @RequestParam Long userId) {
         Post post = postRepository.findById(postId).orElseThrow();
         List<Long> likes = post.getLikes();
-
         if (likes == null) likes = new ArrayList<>();
-
         if (likes.contains(userId)) {
-            likes.remove(userId); // Descurtiu
+            likes.remove(userId);
         } else {
-            likes.add(userId); // Curtiu
-
-            // --- GATILHO NOTIFICAÇÃO: LIKE ---
-            // Só notifica se não for o dono curtindo o próprio post
+            likes.add(userId);
             if (!post.getUserId().equals(userId)) {
-                User sender = userService.getUserById(userId);
-                notificationService.createNotification(
-                        post.getUserId(),
-                        userId,
-                        sender.getUsername(),
-                        "LIKE",
-                        postId
-                );
+                User sender = userService.getUserEntityById(userId);
+                notificationService.createNotification(post.getUserId(), userId, sender.getUsername(), "LIKE", postId);
             }
         }
-
         post.setLikes(likes);
         return postRepository.save(post);
     }
 
-    // --- GEOLOCALIZAÇÃO ---
-
-    @GetMapping("/posts/feed/regional")
-    public List<Post> getRegionalFeed(@RequestParam Long userId,
-                                      @RequestParam(defaultValue = "50") double radiusKm) {
-        User user = userService.getUserById(userId);
-        if (user.getCampusId() == null) {
-            throw new RuntimeException("Usuário não tem campus vinculado! Selecione seu IF no perfil.");
-        }
-        return geoFeedService.getNearbyCampusFeed(user.getCampusId(), radiusKm);
-    }
-
-    @GetMapping("/users/{id}/suggestions")
-    public List<User> getSuggestions(@PathVariable Long id,
-                                     @RequestParam(defaultValue = "50") double radiusKm) {
-        User user = userService.getUserById(id);
-        if (user.getCampusId() == null) return new ArrayList<>();
-
-        return geoFeedService.getPeopleYouMightKnow(id, user.getCampusId(), radiusKm);
-    }
-
-    // --- EVENTOSS (JPA) ---
+    // --- EVENTOS ---
 
     @PostMapping("/events")
     public Event createEvent(@RequestBody Event event) {
+        return eventService.createEvent(event);
+    }
+
+    @PutMapping("/events/{id}")
+    public Event updateEvent(@PathVariable Long id, @RequestBody Event event) {
+        event.setId(id);
         return eventService.createEvent(event);
     }
 
@@ -280,7 +260,7 @@ public class IfConnectedController {
         eventService.toggleParticipation(id, userId, false);
     }
 
-    // --- NOTIFICAÇÕES (MongoDB) ---
+    // --- NOTIFICAÇÕES ---
 
     @GetMapping("/notifications/user/{userId}")
     public List<Notification> getUserNotifications(@PathVariable Long userId) {
@@ -296,16 +276,4 @@ public class IfConnectedController {
     public long getUnreadNotificationCount(@PathVariable Long userId) {
         return notificationService.getUnreadCount(userId);
     }
-
-    @PutMapping("/events/{id}")
-    public Event updateEvent(@PathVariable Long id, @RequestBody Event event) {
-        return eventService.updateEvent(id, event);
-    }
-
-    @DeleteMapping("/events/{id}")
-    public void deleteEvent(@PathVariable Long id) {
-        eventService.deleteEvent(id);
-    }
-
-
 }

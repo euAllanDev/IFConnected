@@ -1,14 +1,27 @@
 package com.ifconnected.model.JDBC;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.io.Serializable;
 
-public class User implements Serializable {
+public class User implements java.io.Serializable {
+
+    private static final long serialVersionUID = 1L;
+
     private Long id;
     private String username;
     private String email;
+
+    // --- NOVOS CAMPOS ---
+    private String password;
+    // --------------------
     private String bio;
     private String profileImageUrl;
     private Long campusId;
+
+    // --- NOVO CAMPO (Com anotação para forçar leitura do JSON) ---
+    @JsonProperty("role")
+    private String role = "STUDENT";
+    // -------------------------------------------------------------
 
     // --- CONSTRUTOR 1: Vazio (Obrigatório) ---
     public User() {
@@ -21,8 +34,7 @@ public class User implements Serializable {
         this.email = email;
     }
 
-    // --- CONSTRUTOR 3: O QUE ESTAVA FALTANDO (5 Argumentos) ---
-    // Esse é o que o UserRepository está chamando
+    // --- CONSTRUTOR 3: Intermediário (Sem senha/role/campus) ---
     public User(Long id, String username, String email, String bio, String profileImageUrl) {
         this.id = id;
         this.username = username;
@@ -31,14 +43,16 @@ public class User implements Serializable {
         this.profileImageUrl = profileImageUrl;
     }
 
-    // --- CONSTRUTOR 4: Completo (Com Campus) ---
-    public User(Long id, String username, String email, String bio, String profileImageUrl, Long campusId) {
+    // --- CONSTRUTOR 4: COMPLETO (Atualizado com Password e Role) ---
+    public User(Long id, String username, String email, String password, String bio, String profileImageUrl, Long campusId, String role) {
         this.id = id;
         this.username = username;
         this.email = email;
+        this.password = password; // Novo
         this.bio = bio;
         this.profileImageUrl = profileImageUrl;
         this.campusId = campusId;
+        this.role = role;         // Novo
     }
 
     // --- Getters e Setters ---
@@ -67,6 +81,15 @@ public class User implements Serializable {
         this.email = email;
     }
 
+    // ✅ Getter e Setter da Senha (Essencial para o Login)
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
     public String getBio() {
         return bio;
     }
@@ -89,5 +112,20 @@ public class User implements Serializable {
 
     public void setCampusId(Long campusId) {
         this.campusId = campusId;
+    }
+
+    // ✅ Getter e Setter do Role (Essencial para permissões)
+    public String getRole() {
+        return role;
+    }
+
+    @JsonProperty("role")
+    public void setRole(String role) {
+        this.role = role;
+    }
+
+    // ✅ Método auxiliar para verificar se é admin
+    public boolean isAdmin() {
+        return "ADMIN".equalsIgnoreCase(this.role);
     }
 }

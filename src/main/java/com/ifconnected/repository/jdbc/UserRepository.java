@@ -165,4 +165,9 @@ public class UserRepository {
         return jdbc.query(sql, userRowMapper);
     }
 
+    public void updateProfileImage(Long userId, String imageUrl) {
+        String sql = "UPDATE users SET profile_image_url = ? WHERE id = ?";
+        jdbc.update(sql, imageUrl, userId);
+    }
+
 }
