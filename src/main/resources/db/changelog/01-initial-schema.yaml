@@ -1,0 +1,203 @@
+databaseChangeLog:
+  # 1. Habilitar PostGIS (Necessário para Campus)
+  - changeSet:
+      id: 1-enable-postgis
+      author: paulogx77
+      changes:
+        - sql:
+            sql: CREATE EXTENSION IF NOT EXISTS postgis;
+
+  # 2. Tabela Users (Baseada no seu UserRepository)
+  - changeSet:
+      id: 2-create-users-table
+      author: paulogx77
+      changes:
+        - createTable:
+            tableName: users
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: username
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: email
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: password
+                  type: VARCHAR(255)
+              - column:
+                  name: bio
+                  type: TEXT
+              - column:
+                  name: profile_image_url
+                  type: TEXT
+              - column:
+                  name: campus_id
+                  type: BIGINT
+              - column:
+                  name: role
+                  type: VARCHAR(50)
+                  defaultValue: "STUDENT"
+
+  # 3. Tabela Campus (Com PostGIS)
+  - changeSet:
+      id: 3-create-campus-table
+      author: paulogx77
+      changes:
+        - createTable:
+            tableName: campus
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+              # Tipo GEOMETRY específico do PostGIS
+              - column:
+                  name: location
+                  type: geometry(Point, 4326)
+
+  # 4. Tabela Follows (N:N)
+  - changeSet:
+      id: 4-create-follows-table
+      author: paulogx77
+      changes:
+        - createTable:
+            tableName: follows
+            columns:
+              - column:
+                  name: follower_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: followed_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+        - addPrimaryKey:
+            tableName: follows
+            columnNames: follower_id, followed_id
+            constraintName: pk_follows
+
+  # 5. Tabela Events (Replicando o JPA)
+  - changeSet:
+      id: 5-create-events-table
+      author: paulogx77
+      changes:
+        - createTable:
+            tableName: events
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: title
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: description
+                  type: TEXT
+              - column:
+                  name: event_date
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: location_name
+                  type: VARCHAR(255)
+              - column:
+                  name: campus_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: creator_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+
+  # 6. Tabela Event Participants (Relacionamento do JPA @ElementCollection)
+  - changeSet:
+      id: 6-create-event-participants
+      author: paulogx77
+      changes:
+        - createTable:
+            tableName: event_participants
+            columns:
+              - column:
+                  name: event_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: BIGINT
+        - addForeignKeyConstraint:
+            baseTableName: event_participants
+            baseColumnNames: event_id
+            referencedTableName: events
+            referencedColumnNames: id
+            constraintName: fk_event_participants_event
+
+  # 7. A TABELA QUE FALTAVA: Projects
+  - changeSet:
+      id: 7-create-projects-table
+      author: paulogx77
+      changes:
+        - createTable:
+            tableName: projects
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: title
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: description
+                  type: TEXT
+              - column:
+                  name: github_url
+                  type: VARCHAR(255)
+              - column:
+                  name: demo_url
+                  type: VARCHAR(255)
+              - column:
+                  name: image_url
+                  type: TEXT
+              - column:
+                  name: user_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+        - addForeignKeyConstraint:
+            baseTableName: projects
+            baseColumnNames: user_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_projects_user

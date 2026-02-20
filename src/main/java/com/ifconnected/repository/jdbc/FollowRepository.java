@@ -12,20 +12,6 @@ public class FollowRepository {
 
     public FollowRepository(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
-        initializeTable(); // Garante que a tabela existe
-    }
-
-    private void initializeTable() {
-        // Cria tabela de relacionamentos (N:N)
-        // A Chave Primária Composta (follower + followed) impede duplicatas
-        String sql = """
-            CREATE TABLE IF NOT EXISTS follows (
-                follower_id BIGINT NOT NULL,
-                followed_id BIGINT NOT NULL,
-                PRIMARY KEY (follower_id, followed_id)
-            )
-        """;
-        jdbc.execute(sql);
     }
 
     // Seguir alguém
@@ -39,8 +25,6 @@ public class FollowRepository {
         """;
         jdbc.update(sql, followerId, followedId);
     }
-
-
 
     // Listar IDs de quem eu sigo
     public List<Long> getFollowingIds(Long userId) {
@@ -63,9 +47,6 @@ public class FollowRepository {
         Integer count = jdbc.queryForObject(sql, Integer.class, userId);
         return count != null ? count : 0;
     }
-// src/main/java/com/ifconnected/repository/jdbc/FollowRepository.java
-
-// ...
 
     // Deixar de seguir (Este método DEVE existir e usar DELETE)
     public void unfollowUser(Long followerId, Long followedId) {

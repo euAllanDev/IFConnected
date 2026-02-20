@@ -36,24 +36,8 @@ public class UserRepository {
 
     public UserRepository(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
-        initializeTable(); // Garante que a tabela existe ao iniciar
     }
-
-    // Cria a tabela automaticamente se não existir (Padrão e Seguro)
-    private void initializeTable() {
-        String sql = """
-            CREATE TABLE IF NOT EXISTS users (
-                id SERIAL PRIMARY KEY,
-                username VARCHAR(255) NOT NULL,
-                email VARCHAR(255) NOT NULL UNIQUE,
-                bio TEXT,
-                profile_image_url TEXT,
-                campus_id BIGINT
-            )
-        """;
-        jdbc.execute(sql);
-    }
-
+    
     // Adicione esse método na classe UserRepository
     public User findByEmail(String email) {
         String sql = "SELECT * FROM users WHERE email = ?";

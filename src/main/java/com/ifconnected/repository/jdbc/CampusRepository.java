@@ -18,12 +18,6 @@ public class CampusRepository {
 
     public CampusRepository(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
-        // Garante que a extensão e a tabela existam
-        this.jdbcTemplate.execute("CREATE EXTENSION IF NOT EXISTS postgis");
-        this.jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS campus (" +
-                "id SERIAL PRIMARY KEY, " +
-                "name VARCHAR(255), " +
-                "location GEOMETRY(Point, 4326))");
     }
 
     // --- Mapper: Converte a linha do Banco (SQL) para Objeto Java ---
