@@ -24,6 +24,12 @@
     </properties>
 
     <dependencies>
+
+
+        <properties>
+            <maven.compiler.release>17</maven.compiler.release>
+        </properties>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
