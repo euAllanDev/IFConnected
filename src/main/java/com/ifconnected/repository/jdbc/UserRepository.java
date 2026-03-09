@@ -18,19 +18,32 @@ public class UserRepository {
 
     // RowMapper: Transforma dados do banco em Objeto Java
     private final RowMapper<User> userRowMapper = (rs, rowNum) -> {
-        User user = new User(
-                rs.getLong("id"),
-                rs.getString("username"),
-                rs.getString("email"),
-                rs.getString("bio"),
-                rs.getString("profile_image_url")
-        );
+        // 1. Criamos um User vazio
+        User user = new User();
 
-        // Mapeia o campus_id se existir (evita NullPointer)
+        // 2. Preenchemos usando os Setters (mais seguro que construtor grande)
+        user.setId(rs.getLong("id"));
+        user.setUsername(rs.getString("username"));
+        user.setEmail(rs.getString("email"));
+        user.setPassword(rs.getString("password")); // <--- ESSENCIAL PARA O LOGIN FUNCIONAR
+        user.setBio(rs.getString("bio"));
+        user.setProfileImageUrl(rs.getString("profile_image_url"));
+
+        // 3. Mapear o campus_id (se existir)
         long campusId = rs.getLong("campus_id");
         if (!rs.wasNull()) {
             user.setCampusId(campusId);
         }
+
+        // 4. Mapear o role (se existir)
+        try {
+            String role = rs.getString("role");
+            if (role != null) user.setRole(role);
+        } catch (Exception e) {
+            // Caso a coluna não exista ainda
+            user.setRole("STUDENT");
+        }
+
         return user;
     };
 
@@ -50,8 +63,8 @@ public class UserRepository {
 
     public User save(User user) {
         String sql = """
-            INSERT INTO users (username, email, bio, profile_image_url, campus_id)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO users (username, email, password, bio, profile_image_url, campus_id, role)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             RETURNING id
         """;
 
@@ -59,9 +72,11 @@ public class UserRepository {
             Long newId = jdbc.queryForObject(sql, Long.class,
                     user.getUsername(),
                     user.getEmail(),
+                    user.getPassword(), // A senha criptografada TEM que vir aqui
                     user.getBio(),
                     user.getProfileImageUrl(),
-                    user.getCampusId()
+                    user.getCampusId(),
+                    user.getRole()      // O papel (ex: STUDENT) TEM que vir aqui
             );
 
             user.setId(newId);
