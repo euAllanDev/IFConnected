@@ -5,6 +5,8 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Setter
 @Getter
@@ -31,4 +33,11 @@ public class Project {
 
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    @ElementCollection(fetch = FetchType.EAGER) // Carrega as tags junto com o projeto
+    @CollectionTable(
+            name = "project_technologies",
+            joinColumns = @JoinColumn(name = "project_id")
+    )
+    @Column(name = "tech_name")
+    private List<String> technologies = new ArrayList<>();
 }

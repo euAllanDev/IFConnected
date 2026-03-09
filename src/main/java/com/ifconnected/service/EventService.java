@@ -1,5 +1,6 @@
 package com.ifconnected.service;
 
+import com.ifconnected.exception.ResourceNotFoundException;
 import com.ifconnected.model.JPA.Event;
 import com.ifconnected.repository.jpa.EventRepository;
 import org.springframework.stereotype.Service;
@@ -61,7 +62,7 @@ public class EventService {
         if (eventRepository.existsById(id)) {
             eventRepository.deleteById(id);
         } else {
-            throw new RuntimeException("Evento não encontrado para exclusão");
+            throw new ResourceNotFoundException("Evento não encontrado para exclusão");
         }
     }
 }

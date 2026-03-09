@@ -30,7 +30,6 @@ public class CampusService {
         return convertToDTOs(campuses);
     }
 
-    // --- NOVO MÉTODO: Listar Todos (Para o Registro) ---
     public List<CampusDTO> getAll() {
         List<Campus> campuses = campusRepository.findAll();
         return convertToDTOs(campuses);

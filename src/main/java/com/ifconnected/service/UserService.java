@@ -1,5 +1,6 @@
 package com.ifconnected.service;
 
+import com.ifconnected.exception.ResourceNotFoundException;
 import com.ifconnected.model.DTO.UpdateUserDTO;
 import com.ifconnected.model.DTO.UserProfileDTO;
 import com.ifconnected.model.DTO.UserResponseDTO;
@@ -11,6 +12,8 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -22,15 +25,21 @@ public class UserService {
     private final FollowRepository followRepository;
     private final PostRepository postRepository;
     private final PasswordEncoder passwordEncoder;
+    private final MinioService minioService;
+    private final NotificationService notificationService;
 
     public UserService(UserRepository userRepository,
                        FollowRepository followRepository,
                        PostRepository postRepository,
-                       PasswordEncoder passwordEncoder) {
+                       PasswordEncoder passwordEncoder,
+                       MinioService minioService,
+                       NotificationService notificationService) {
         this.userRepository = userRepository;
         this.followRepository = followRepository;
         this.postRepository = postRepository;
         this.passwordEncoder = passwordEncoder;
+        this.minioService = minioService;
+        this.notificationService = notificationService;
     }
 
     public UserResponseDTO createUser(User user) {
@@ -48,7 +57,7 @@ public class UserService {
     public UserResponseDTO login(String email) {
         User user = userRepository.findByEmail(email);
         if (user == null) {
-            throw new RuntimeException("Usuário não encontrado.");
+            throw new ResourceNotFoundException("Usuário não encontrado.");
         }
         return new UserResponseDTO(user);
     }
@@ -57,18 +66,19 @@ public class UserService {
     public UserResponseDTO getUserById(Long id) {
         User user = userRepository.findById(id);
         if (user == null) {
-            throw new RuntimeException("Usuário não encontrado");
+            throw new ResourceNotFoundException("Usuário não encontrado");
         }
         return new UserResponseDTO(user);
     }
 
-    // --- ESSE É O MÉTODO QUE O CONTROLLER TÁ PEDINDO E NÃO ACHAVA ---
     public User getUserEntityById(Long id) {
-        return userRepository.findById(id);
+        User user = userRepository.findById(id);
+        if (user == null) {
+            throw new ResourceNotFoundException("Usuário não encontrado");
+        }
+        return user;
     }
-    // ----------------------------------------------------------------
 
-    // Atualizado para retornar lista de DTOs (corrigindo erro de tipo)
     public List<UserResponseDTO> getAllUsers() {
         List<User> users = userRepository.findAll();
         return users.stream()
@@ -76,12 +86,11 @@ public class UserService {
                 .collect(Collectors.toList());
     }
 
-    // Atualizado para aceitar o DTO e o ID (corrigindo erro de argumentos)
     @CacheEvict(value = "users", key = "#id")
     public UserResponseDTO updateUser(Long id, UpdateUserDTO dto) {
         User existingUser = userRepository.findById(id);
         if (existingUser == null) {
-            throw new RuntimeException("Usuário não encontrado");
+            throw new ResourceNotFoundException("Usuário não encontrado");
         }
 
         if (dto.getUsername() != null) existingUser.setUsername(dto.getUsername());
@@ -92,22 +101,42 @@ public class UserService {
         return new UserResponseDTO(updatedUser);
     }
 
-    // --- MÉTODO NOVO QUE O CONTROLLER PEDE ---
     @CacheEvict(value = "users", key = "#id")
-    public UserResponseDTO updateProfileImage(Long id, String imageUrl) {
+    @Transactional
+    public UserResponseDTO updateProfileImage(Long id, MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Arquivo inválido"); // Vai dar 400 Bad Request
+        }
+
+        // O Service manda a foto pro MinIO
+        String imageUrl = minioService.uploadImage(file);
+
+        // O Service manda o repositório salvar a URL
         userRepository.updateProfileImage(id, imageUrl);
+
         User user = userRepository.findById(id);
         return new UserResponseDTO(user);
     }
-    // -----------------------------------------
 
     @CacheEvict(value = "users", key = "#userId")
     public void updateCampus(Long userId, Long campusId) {
         userRepository.updateCampus(userId, campusId);
     }
 
+    @Transactional
     public void follow(Long followerId, Long followedId) {
+        // 1. Salva no banco de relacionamentos (Postgres)
         followRepository.followUser(followerId, followedId);
+
+        // 2. Dispara a notificação (Mongo)
+        User follower = getUserEntityById(followerId);
+        notificationService.createNotification(
+                followedId,
+                followerId,
+                follower.getUsername(),
+                "FOLLOW",
+                null
+        );
     }
 
     public void unfollow(Long followerId, Long followedId) {
@@ -124,19 +153,17 @@ public class UserService {
 
     public UserProfileDTO getUserProfile(Long userId) {
         User user = userRepository.findById(userId);
-        if (user == null) throw new RuntimeException("Usuário não encontrado");
+        if (user == null) throw new ResourceNotFoundException("Usuário não encontrado");
 
         int followers = followRepository.countFollowers(userId);
         int following = followRepository.countFollowing(userId);
         long posts = postRepository.countByUserId(userId);
 
-        // CORREÇÃO DO ERRO DE TIPO (Passo 4)
         return new UserProfileDTO(new UserResponseDTO(user), followers, following, posts);
     }
 
     public boolean isEmailRegistered(String email) {
         return userRepository.findByEmail(email) != null;
     }
-
 
 }

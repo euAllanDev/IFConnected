@@ -1,0 +1,111 @@
+databaseChangeLog:
+  # 1. Tabela de Vagas (Jobs)
+  - changeSet:
+      id: 8-create-jobs-table
+      author: ifconnected-team
+      changes:
+        - createTable:
+            tableName: jobs
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: title
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: description
+                  type: TEXT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: location
+                  type: VARCHAR(255)
+              - column:
+                  name: type
+                  type: VARCHAR(50) # CLT, PJ, ESTAGIO
+              - column:
+                  name: requirements
+                  type: TEXT        # Requisitos da vaga
+              - column:
+                  name: company_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+              - column:
+                  name: active
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+        - addForeignKeyConstraint:
+            baseTableName: jobs
+            baseColumnNames: company_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_jobs_company
+
+  # 2. Tabela de Candidaturas (Job Applications)
+  - changeSet:
+      id: 9-create-job-applications-table
+      author: ifconnected-team
+      changes:
+        - createTable:
+            tableName: job_applications
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: job_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: candidate_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: cover_letter
+                  type: TEXT
+              - column:
+                  name: status
+                  type: VARCHAR(50)
+                  defaultValue: "PENDING" # PENDING, REVIEWED, INTERVIEW, REJECTED, WITHDRAWN
+              - column:
+                  name: applied_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+
+        # Chaves Estrangeiras
+        - addForeignKeyConstraint:
+            baseTableName: job_applications
+            baseColumnNames: job_id
+            referencedTableName: jobs
+            referencedColumnNames: id
+            constraintName: fk_application_job
+        - addForeignKeyConstraint:
+            baseTableName: job_applications
+            baseColumnNames: candidate_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_application_candidate
+
+        # Um candidato só aplica uma vez por vaga
+        - addUniqueConstraint:
+            tableName: job_applications
+            columnNames: job_id, candidate_id
+            constraintName: uk_job_candidate

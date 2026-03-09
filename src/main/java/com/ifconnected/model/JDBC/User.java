@@ -1,5 +1,6 @@
 package com.ifconnected.model.JDBC;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.io.Serializable;
 
@@ -81,7 +82,7 @@ public class User implements java.io.Serializable {
         this.email = email;
     }
 
-    // ✅ Getter e Setter da Senha (Essencial para o Login)
+    @JsonIgnore
     public String getPassword() {
         return password;
     }
