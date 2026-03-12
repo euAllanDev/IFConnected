@@ -33,7 +33,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<Map<String, Object>> login(@RequestBody User loginData) {
+    public ResponseEntity<Map<String, Object>> login(@RequestBody LoginDTO loginData) {
         // 1. O Spring Security valida a senha criptografada aqui
         var authToken = new UsernamePasswordAuthenticationToken(loginData.getEmail(), loginData.getPassword());
         var authentication = authenticationManager.authenticate(authToken);
