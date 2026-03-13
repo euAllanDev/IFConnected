@@ -1,8 +1,7 @@
 package com.ifconnected.controller;
 
 import com.ifconnected.model.JPA.Project;
-import com.ifconnected.repository.jpa.ProjectRepository;
-import com.ifconnected.service.MinioService;
+import com.ifconnected.service.ProjectService;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -13,12 +12,10 @@ import java.util.List;
 @RequestMapping("/api")
 public class ProjectController {
 
-    private final ProjectRepository projectRepository;
-    private final MinioService minioService; // <-- Injetar o MinioService
+    private final ProjectService projectService;
 
-    public ProjectController(ProjectRepository projectRepository, MinioService minioService) {
-        this.projectRepository = projectRepository;
-        this.minioService = minioService;
+    public ProjectController(ProjectService projectService) {
+        this.projectService = projectService;
     }
 
     @PostMapping(value = "/projects", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -28,21 +25,10 @@ public class ProjectController {
             @RequestParam("description") String description,
             @RequestParam(value = "githubUrl", required = false) String githubUrl,
             @RequestParam(value = "demoUrl", required = false) String demoUrl,
+            @RequestParam(value = "technologies", required = false) List<String> technologies,
             @RequestParam(value = "file", required = false) MultipartFile file) {
 
-        Project project = new Project();
-        project.setUserId(userId);
-        project.setTitle(title);
-        project.setDescription(description);
-        project.setGithubUrl(githubUrl);
-        project.setDemoUrl(demoUrl);
-
-        if (file != null && !file.isEmpty()) {
-            String imageUrl = minioService.uploadImage(file);
-            project.setImageUrl(imageUrl);
-        }
-
-        return projectRepository.save(project);
+        return projectService.createProject(userId, title, description, githubUrl, demoUrl, technologies, file);
     }
 
     @PutMapping(value = "/projects/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -52,31 +38,19 @@ public class ProjectController {
             @RequestParam("description") String description,
             @RequestParam(value = "githubUrl", required = false) String githubUrl,
             @RequestParam(value = "demoUrl", required = false) String demoUrl,
+            @RequestParam(value = "technologies", required = false) List<String> technologies,
             @RequestParam(value = "file", required = false) MultipartFile file) {
 
-        Project existingProject = projectRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Projeto não encontrado!"));
-
-        existingProject.setTitle(title);
-        existingProject.setDescription(description);
-        existingProject.setGithubUrl(githubUrl);
-        existingProject.setDemoUrl(demoUrl);
-
-        if (file != null && !file.isEmpty()) {
-            String newImageUrl = minioService.uploadImage(file);
-            existingProject.setImageUrl(newImageUrl);
-        }
-
-        return projectRepository.save(existingProject);
+        return projectService.updateProject(id, title, description, githubUrl, demoUrl, technologies, file);
     }
 
     @DeleteMapping("/projects/{id}")
     public void deleteProject(@PathVariable Long id) {
-        projectRepository.deleteById(id);
+        projectService.deleteProject(id);
     }
 
     @GetMapping("/users/{userId}/projects")
     public List<Project> getUserProjects(@PathVariable Long userId) {
-        return projectRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        return projectService.getByUser(userId);
     }
 }
