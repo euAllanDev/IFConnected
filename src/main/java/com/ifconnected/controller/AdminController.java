@@ -4,6 +4,7 @@ import com.ifconnected.model.DTO.DashboardDTO;
 import com.ifconnected.model.DTO.LoginDTO;
 import com.ifconnected.model.DTO.UserResponseDTO;
 import com.ifconnected.model.JDBC.User;
+import com.ifconnected.model.enums.Role;
 import com.ifconnected.security.TokenService;
 import com.ifconnected.security.UserLoginInfo;
 import com.ifconnected.service.AdminService;
@@ -34,7 +35,7 @@ public class AdminController {
         this.tokenService = tokenService;
     }
 
-    @PostMapping("/admin/login")
+    @PostMapping("/login")
     public ResponseEntity<?> adminLogin(@RequestBody LoginDTO data) {
         // 1. Autentica
         var usernamePassword = new UsernamePasswordAuthenticationToken(data.getEmail(), data.getPassword());
@@ -42,7 +43,7 @@ public class AdminController {
 
         // 2. Verifica se é realmente Admin
         UserLoginInfo userLoginInfo = (UserLoginInfo) auth.getPrincipal();
-        if (!"ADMIN".equalsIgnoreCase(userLoginInfo.getUser().getRole())) {
+        if (userLoginInfo.getUser().getRole() != Role.ADMIN) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Acesso negado: Perfil sem privilégios administrativos.");
         }
 
@@ -64,7 +65,7 @@ public class AdminController {
     public ResponseEntity<?> getDashboard(@RequestParam Long userId) {
         User user = userService.getUserEntityById(userId);
 
-        if (!"ADMIN".equalsIgnoreCase(user.getRole())) {
+        if (user.getRole() != Role.ADMIN)  {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Acesso restrito.");
         }
 

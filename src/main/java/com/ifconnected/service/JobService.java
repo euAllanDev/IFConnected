@@ -8,6 +8,7 @@ import com.ifconnected.model.JDBC.User;
 import com.ifconnected.model.JPA.Job;
 import com.ifconnected.model.JPA.JobApplication;
 import com.ifconnected.model.enums.ApplicationStatus;
+import com.ifconnected.model.enums.Role;
 import com.ifconnected.repository.jpa.JobApplicationRepository;
 import com.ifconnected.repository.jpa.JobRepository;
 import org.springframework.stereotype.Service;
@@ -40,8 +41,8 @@ public class JobService {
     public Job createJob(Job job, Long userId) {
         User user = userService.getUserEntityById(userId);
 
-        if (!"COMPANY".equalsIgnoreCase(user.getRole()) && !"ADMIN".equalsIgnoreCase(user.getRole())) {
-            throw new RuntimeException("Apenas perfis de EMPRESA podem publicar vagas.");
+        if (user.getRole() != Role.COMPANY && user.getRole() != Role.ADMIN) {
+            throw new BusinessRuleException("Apenas perfis de EMPRESA podem publicar vagas.");
         }
 
         job.setCompanyId(userId);
@@ -59,7 +60,7 @@ public class JobService {
         User candidate = userService.getUserEntityById(candidateId);
 
         // Apenas estudantes podem se candidatar
-        if (!"STUDENT".equalsIgnoreCase(candidate.getRole())) {
+        if (candidate.getRole() != Role.STUDENT) {
             throw new BusinessRuleException("Apenas perfis de ESTUDANTE podem se candidatar a vagas.");
         }
 

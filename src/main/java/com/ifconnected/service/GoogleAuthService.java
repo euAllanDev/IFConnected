@@ -5,6 +5,7 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import com.ifconnected.model.JDBC.User;
+import com.ifconnected.model.enums.Role;
 import com.ifconnected.repository.jdbc.UserRepository;
 import com.ifconnected.security.TokenService;
 import com.ifconnected.security.UserLoginInfo;
@@ -60,7 +61,7 @@ public class GoogleAuthService {
                 user.setEmail(email);
                 user.setProfileImageUrl(pictureUrl);
                 user.setBio("Estudante via Google");
-                user.setRole("STUDENT");
+                user.setRole(Role.STUDENT);
                 user.setCampusId(null); // Deixa nulo para o Front pedir a escolha do campus
 
                 // Senha aleatória forte

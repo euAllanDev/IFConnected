@@ -5,6 +5,7 @@ import com.ifconnected.model.DTO.UpdateUserDTO;
 import com.ifconnected.model.DTO.UserProfileDTO;
 import com.ifconnected.model.DTO.UserResponseDTO;
 import com.ifconnected.model.JDBC.User;
+import com.ifconnected.model.enums.Role;
 import com.ifconnected.repository.jdbc.FollowRepository;
 import com.ifconnected.repository.jdbc.UserRepository;
 import com.ifconnected.repository.mongo.PostRepository;
@@ -46,8 +47,8 @@ public class UserService {
         String encodedPassword = passwordEncoder.encode(user.getPassword());
         user.setPassword(encodedPassword);
 
-        if (user.getRole() == null || user.getRole().isEmpty()) {
-            user.setRole("STUDENT");
+        if (user.getRole() == null) {
+            user.setRole(Role.STUDENT);
         }
 
         User savedUser = userRepository.save(user);
@@ -83,7 +84,7 @@ public class UserService {
         List<User> users = userRepository.findAll();
         return users.stream()
                 .map(UserResponseDTO::new)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @CacheEvict(value = "users", key = "#id")

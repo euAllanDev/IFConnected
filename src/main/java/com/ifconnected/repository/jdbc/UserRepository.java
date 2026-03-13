@@ -1,12 +1,14 @@
 package com.ifconnected.repository.jdbc;
 
 import com.ifconnected.model.JDBC.User;
+import com.ifconnected.model.enums.Role;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -37,11 +39,18 @@ public class UserRepository {
 
         // 4. Mapear o role (se existir)
         try {
-            String role = rs.getString("role");
-            if (role != null) user.setRole(role);
-        } catch (Exception e) {
-            // Caso a coluna não exista ainda
-            user.setRole("STUDENT");
+            String roleStr = rs.getString("role");
+            if (roleStr != null) {
+                try {
+                    user.setRole(Role.valueOf(roleStr));
+                } catch (IllegalArgumentException e) {
+                    user.setRole(Role.STUDENT); // fallback seguro
+                }
+            } else {
+                user.setRole(Role.STUDENT);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
         }
 
         return user;
@@ -76,7 +85,7 @@ public class UserRepository {
                     user.getBio(),
                     user.getProfileImageUrl(),
                     user.getCampusId(),
-                    user.getRole()      // O papel (ex: STUDENT) TEM que vir aqui
+                    user.getRole().name()      // O papel (ex: STUDENT) TEM que vir aqui
             );
 
             user.setId(newId);

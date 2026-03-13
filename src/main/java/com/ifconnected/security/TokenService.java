@@ -53,8 +53,6 @@ public class TokenService {
     }
 
     private Instant genExpirationDate() {
-        // Expira em 2 horas.
-        // Verifique se o relógio do seu Windows está certo, caso contrário o token "nasce" expirado.
-        return LocalDateTime.now().plusHours(2).toInstant(ZoneOffset.of("-03:00"));
+        return Instant.now().plusSeconds(60 * 60 * 2);
     }
 }

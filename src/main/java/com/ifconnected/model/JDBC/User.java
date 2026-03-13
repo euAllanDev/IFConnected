@@ -2,6 +2,8 @@ package com.ifconnected.model.JDBC;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.ifconnected.model.enums.Role;
+
 import java.io.Serializable;
 
 public class User implements java.io.Serializable {
@@ -21,7 +23,7 @@ public class User implements java.io.Serializable {
 
     // --- NOVO CAMPO (Com anotação para forçar leitura do JSON) ---
     @JsonProperty("role")
-    private String role = "STUDENT";
+    private Role role = Role.STUDENT;
     // -------------------------------------------------------------
 
     // --- CONSTRUTOR 1: Vazio (Obrigatório) ---
@@ -45,7 +47,7 @@ public class User implements java.io.Serializable {
     }
 
     // --- CONSTRUTOR 4: COMPLETO (Atualizado com Password e Role) ---
-    public User(Long id, String username, String email, String password, String bio, String profileImageUrl, Long campusId, String role) {
+    public User(Long id, String username, String email, String password, String bio, String profileImageUrl, Long campusId, Role role) {
         this.id = id;
         this.username = username;
         this.email = email;
@@ -116,17 +118,14 @@ public class User implements java.io.Serializable {
     }
 
     // ✅ Getter e Setter do Role (Essencial para permissões)
-    public String getRole() {
+    public Role getRole() {
         return role;
     }
 
     @JsonProperty("role")
-    public void setRole(String role) {
+    public void setRole(Role role) {
         this.role = role;
     }
 
-    // ✅ Método auxiliar para verificar se é admin
-    public boolean isAdmin() {
-        return "ADMIN".equalsIgnoreCase(this.role);
-    }
+    public boolean isAdmin() { return Role.ADMIN == this.role; }
 }

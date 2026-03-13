@@ -1,5 +1,7 @@
 package com.ifconnected.model.DTO;
 
+import com.ifconnected.model.enums.Role;
+
 public class RegisterDTO {
     private String username;
     private String email;
@@ -7,7 +9,7 @@ public class RegisterDTO {
     private String bio;
     private String profileImageUrl;
     private Long campusId;
-    private String role;
+    private Role role;
 
     // Getters e Setters
     public String getUsername() { return username; }
@@ -22,6 +24,6 @@ public class RegisterDTO {
     public void setProfileImageUrl(String profileImageUrl) { this.profileImageUrl = profileImageUrl; }
     public Long getCampusId() { return campusId; }
     public void setCampusId(Long campusId) { this.campusId = campusId; }
-    public String getRole() { return role; }
-    public void setRole(String role) { this.role = role; }
+    public Role getRole() { return role; }
+    public void setRole(Role role) { this.role = role; }
 }

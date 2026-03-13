@@ -38,15 +38,8 @@ public class UserLoginInfo implements UserDetails { // Adicionamos o implements 
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        // Pega o cargo do usuário (ADMIN ou STUDENT)
-        String roleName = user.getRole() == null ? "STUDENT" : user.getRole();
-
-        // O Spring Security exige que cargos comecem com "ROLE_"
-        if (!roleName.startsWith("ROLE_")) {
-            roleName = "ROLE_" + roleName;
-        }
-
-        return Collections.singletonList(new SimpleGrantedAuthority(roleName));
+        String authority = "ROLE_" + user.getRole().name();
+        return Collections.singletonList(new SimpleGrantedAuthority(authority));
     }
 
     @Override
