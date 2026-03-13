@@ -1,11 +1,15 @@
 package com.ifconnected.controller;
 
+import com.ifconnected.model.DTO.CandidateResponseDTO;
+import com.ifconnected.model.DTO.MyApplicationDTO;
 import com.ifconnected.model.JPA.Job;
 import com.ifconnected.model.JPA.JobApplication;
 import com.ifconnected.model.enums.ApplicationStatus;
 import com.ifconnected.service.JobService;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
@@ -26,12 +30,10 @@ public class JobController {
         return jobService.getFeed();
     }
 
-    // 2. Criar Vaga (Apenas Empresas)
-    @PostMapping
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public Job createJob(@RequestBody Job job, @RequestParam Long userId) {
         return jobService.createJob(job, userId);
     }
-
     // 3. Aplicar para Vaga (Alunos)
     @PostMapping("/{jobId}/apply")
     public ResponseEntity<?> apply(@PathVariable Long jobId,
@@ -45,7 +47,7 @@ public class JobController {
 
     // 4. Ver Candidatos da Vaga (Apenas dono da vaga)
     @GetMapping("/{jobId}/candidates")
-    public List<JobApplication> getCandidates(@PathVariable Long jobId, @RequestParam Long companyId) {
+    public List<CandidateResponseDTO> getCandidates(@PathVariable Long jobId, @RequestParam Long companyId) {
         return jobService.getJobCandidates(jobId, companyId);
     }
 
@@ -61,8 +63,15 @@ public class JobController {
 
     // 6. Minhas Candidaturas (Aluno)
     @GetMapping("/my-applications")
-    public List<JobApplication> getMyApplications(@RequestParam Long userId) {
+    public List<MyApplicationDTO> getMyApplications(@RequestParam Long userId) {
         return jobService.getMyApplications(userId);
+    }
+
+    @GetMapping("/company/{companyId}")
+    public List<Job> getCompanyJobs(@PathVariable Long companyId) {
+        // Isso depende de você ter o método findByCompanyIdOrderByCreatedAtDesc no JobRepository
+        // Que já havíamos criado em passos anteriores!
+        return jobService.getJobsByCompany(companyId);
     }
 
 

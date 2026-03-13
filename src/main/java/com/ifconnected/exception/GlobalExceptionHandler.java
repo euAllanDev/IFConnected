@@ -1,4 +1,4 @@
-package com.ifconnected.config;
+package com.ifconnected.exception;
 
 import com.ifconnected.exception.BusinessRuleException;
 import com.ifconnected.exception.ResourceNotFoundException;

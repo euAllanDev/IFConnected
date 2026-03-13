@@ -11,6 +11,8 @@ public class WebConfig implements WebMvcConfigurer {
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**") // Libera todas as rotas
                 .allowedOrigins("http://localhost:3000") // Permite o Next.js
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD");
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD")
+                .allowedHeaders("*") // Importante: aceitar todos os headers (incluindo o Authorization)
+                .allowCredentials(true);
     }
 }

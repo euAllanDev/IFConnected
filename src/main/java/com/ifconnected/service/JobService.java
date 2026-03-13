@@ -1,6 +1,9 @@
 package com.ifconnected.service;
 
 import com.ifconnected.exception.BusinessRuleException;
+import com.ifconnected.exception.ResourceNotFoundException;
+import com.ifconnected.model.DTO.CandidateResponseDTO;
+import com.ifconnected.model.DTO.MyApplicationDTO;
 import com.ifconnected.model.JDBC.User;
 import com.ifconnected.model.JPA.Job;
 import com.ifconnected.model.JPA.JobApplication;
@@ -9,6 +12,7 @@ import com.ifconnected.repository.jpa.JobApplicationRepository;
 import com.ifconnected.repository.jpa.JobRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -20,13 +24,15 @@ public class JobService {
     private final JobApplicationRepository applicationRepository;
     private final UserService userService;
     private final NotificationService notificationService;
+    private final MinioService minioService;
 
     public JobService(JobRepository jobRepository, JobApplicationRepository applicationRepository,
-                      UserService userService, NotificationService notificationService) {
+                      UserService userService, NotificationService notificationService, MinioService minioService) {
         this.jobRepository = jobRepository;
         this.applicationRepository = applicationRepository;
         this.userService = userService;
         this.notificationService = notificationService;
+        this.minioService = minioService;
     }
 
     //EMPRESA: Criar Vaga
@@ -35,18 +41,28 @@ public class JobService {
         User user = userService.getUserEntityById(userId);
 
         if (!"COMPANY".equalsIgnoreCase(user.getRole()) && !"ADMIN".equalsIgnoreCase(user.getRole())) {
-            throw new BusinessRuleException("Apenas perfis de EMPRESA podem publicar vagas.");
+            throw new RuntimeException("Apenas perfis de EMPRESA podem publicar vagas.");
         }
 
         job.setCompanyId(userId);
         job.setActive(true);
         job.setCreatedAt(LocalDateTime.now());
+
+        // Se o front mandar uma URL, ele salva. Se não, salva nulo.
         return jobRepository.save(job);
     }
 
     //ALUNO: Aplicar para Vaga
     @Transactional
     public void applyToJob(Long jobId, Long candidateId, String coverLetter) {
+
+        User candidate = userService.getUserEntityById(candidateId);
+
+        // Apenas estudantes podem se candidatar
+        if (!"STUDENT".equalsIgnoreCase(candidate.getRole())) {
+            throw new BusinessRuleException("Apenas perfis de ESTUDANTE podem se candidatar a vagas.");
+        }
+
         Job job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new RuntimeException("Vaga não encontrada."));
 
@@ -94,16 +110,45 @@ public class JobService {
         return jobRepository.count();
     }
 
-    public List<JobApplication> getJobCandidates(Long jobId, Long companyId) {
-        Job job = jobRepository.findById(jobId).orElseThrow();
+    public List<CandidateResponseDTO> getJobCandidates(Long jobId, Long companyId) {
+        Job job = jobRepository.findById(jobId).orElseThrow(() -> new ResourceNotFoundException("Vaga não encontrada."));
+
         if (!job.getCompanyId().equals(companyId)) {
             throw new BusinessRuleException("Acesso negado.");
         }
-        return applicationRepository.findByJobIdOrderByAppliedAtDesc(jobId);
+        List<JobApplication> applications = applicationRepository.findByJobIdOrderByAppliedAtDesc(jobId);
+
+        return applications.stream().map(app -> {
+            User candidate = userService.getUserEntityById(app.getCandidateId());
+            return new com.ifconnected.model.DTO.CandidateResponseDTO(
+                    app.getId(),
+                    candidate.getId(),
+                    candidate.getUsername(),
+                    candidate.getEmail(),
+                    candidate.getProfileImageUrl(),
+                    app.getCoverLetter(),
+                    app.getStatus().name(),
+                    app.getAppliedAt()
+            );
+        }).toList();
     }
 
-    public List<JobApplication> getMyApplications(Long studentId) {
-        return applicationRepository.findByCandidateIdOrderByAppliedAtDesc(studentId);
+    public List<MyApplicationDTO> getMyApplications(Long studentId) {
+        List<JobApplication> applications = applicationRepository.findByCandidateIdOrderByAppliedAtDesc(studentId);
+
+        return applications.stream().map(app -> {
+            Job job = jobRepository.findById(app.getJobId()).orElseThrow();
+            User company = userService.getUserEntityById(job.getCompanyId());
+
+            return new MyApplicationDTO(
+                    app.getId(),
+                    job.getId(),
+                    job.getTitle(),
+                    company.getUsername(), // Nome da empresa
+                    app.getStatus().name(),
+                    app.getAppliedAt()
+            );
+        }).toList();
     }
 
     private void validateApplicationRules(Job job, Long candidateId) {
@@ -135,5 +180,9 @@ public class JobService {
                 "JOB_STATUS_" + newStatus.name(),
                 job.getId().toString()
         );
+    }
+
+    public List<Job> getJobsByCompany(Long companyId) {
+        return jobRepository.findByCompanyIdOrderByCreatedAtDesc(companyId);
     }
 }
