@@ -13,6 +13,8 @@ public class Campus {
 
     private String name;
 
+// EU Neto ESTIVE NESSE LOCAL DO CODIGO
+
     // Coluna especial do PostGIS. 4326 é o código para coordenadas GPS (WGS84)
     @Column(columnDefinition = "geometry(Point, 4326")
     private Point location;
