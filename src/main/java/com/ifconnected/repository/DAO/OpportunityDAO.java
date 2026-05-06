@@ -1,4 +1,4 @@
-package com.ifconnected.repository.dao;
+package com.ifconnected.repository.DAO;
 
 import com.ifconnected.model.JPA.Opportunity;
 import jakarta.persistence.EntityManager;

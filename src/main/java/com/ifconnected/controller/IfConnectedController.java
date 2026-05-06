@@ -627,7 +627,7 @@ public class IfConnectedController {
             project.setImageUrl(imageUrl);
         }
 
-        return projectService.save(project);
+        return projectService.createProject(project);
     }
 
     @Operation(summary = "Deletar projeto", tags = {"Projects"})
@@ -719,4 +719,16 @@ public class IfConnectedController {
     ) {
         opportunityService.deleteOpportunity(id, userId);
     }
+
+    @GetMapping("/events")
+    public List<Event> getAllEvents() {
+
+        return eventService.getEventsByCampus(1L);
+    }
+
+    @PostMapping("/projects")
+    public Project createProject(@RequestBody Project project) {
+        return projectService.createProject(project);
+    }
+
 }
