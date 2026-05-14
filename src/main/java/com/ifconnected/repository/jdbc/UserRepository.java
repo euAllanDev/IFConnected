@@ -16,31 +16,25 @@ public class UserRepository {
 
     private final JdbcTemplate jdbc;
 
-    // RowMapper: Transforma dados do banco em Objeto Java
     private final RowMapper<User> userRowMapper = (rs, rowNum) -> {
-        // 1. Criamos um User vazio
         User user = new User();
 
-        // 2. Preenchemos usando os Setters (mais seguro que construtor grande)
         user.setId(rs.getLong("id"));
         user.setUsername(rs.getString("username"));
         user.setEmail(rs.getString("email"));
-        user.setPassword(rs.getString("password")); // <--- ESSENCIAL PARA O LOGIN FUNCIONAR
+        user.setPassword(rs.getString("password"));
         user.setBio(rs.getString("bio"));
         user.setProfileImageUrl(rs.getString("profile_image_url"));
 
-        // 3. Mapear o campus_id (se existir)
         long campusId = rs.getLong("campus_id");
         if (!rs.wasNull()) {
             user.setCampusId(campusId);
         }
 
-        // 4. Mapear o role (se existir)
         try {
             String role = rs.getString("role");
             if (role != null) user.setRole(role);
         } catch (Exception e) {
-            // Caso a coluna não exista ainda
             user.setRole("STUDENT");
         }
 
@@ -50,14 +44,22 @@ public class UserRepository {
     public UserRepository(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
     }
-    
-    // Adicione esse método na classe UserRepository
+
     public User findByEmail(String email) {
         String sql = "SELECT * FROM users WHERE email = ?";
         try {
             return jdbc.queryForObject(sql, userRowMapper, email);
-        } catch (org.springframework.dao.EmptyResultDataAccessException e) {
-            return null; // Usuário não existe
+        } catch (EmptyResultDataAccessException e) {
+            return null;
+        }
+    }
+
+    public User findByUsername(String username) {
+        String sql = "SELECT * FROM users WHERE username = ?";
+        try {
+            return jdbc.queryForObject(sql, userRowMapper, username);
+        } catch (EmptyResultDataAccessException e) {
+            return null;
         }
     }
 
@@ -72,30 +74,27 @@ public class UserRepository {
             Long newId = jdbc.queryForObject(sql, Long.class,
                     user.getUsername(),
                     user.getEmail(),
-                    user.getPassword(), // A senha criptografada TEM que vir aqui
+                    user.getPassword(),
                     user.getBio(),
                     user.getProfileImageUrl(),
                     user.getCampusId(),
-                    user.getRole()      // O papel (ex: STUDENT) TEM que vir aqui
+                    user.getRole()
             );
 
             user.setId(newId);
             return user;
 
         } catch (DuplicateKeyException e) {
-            // Aqui capturamos o erro do Postgres e lançamos um erro mais amigável
             throw new RuntimeException("Erro: O e-mail '" + user.getEmail() + "' já está cadastrado no sistema.");
         }
     }
-
-
 
     public User findById(Long id) {
         String sql = "SELECT * FROM users WHERE id = ?";
         try {
             return jdbc.queryForObject(sql, userRowMapper, id);
         } catch (EmptyResultDataAccessException e) {
-            return null; // Ou lançar uma exceção personalizada
+            return null;
         }
     }
 
@@ -118,13 +117,11 @@ public class UserRepository {
         return user;
     }
 
-    // Atualiza apenas o Campus (Método auxiliar rápido)
     public void updateCampus(Long userId, Long campusId) {
         String sql = "UPDATE users SET campus_id = ? WHERE id = ?";
         jdbc.update(sql, campusId, userId);
     }
 
-    // Busca usuários por lista de Campi
     public List<Long> findUserIdsByCampusIds(List<Long> campusIds) {
         if (campusIds.isEmpty()) return List.of();
 
@@ -134,13 +131,11 @@ public class UserRepository {
         return jdbc.queryForList(sql, Long.class, campusIds.toArray());
     }
 
-    // Sugestão de amigos (Pessoas dos campi vizinhos que eu NÃO sigo)
     public List<User> findSuggestions(Long myId, List<Long> nearbyCampusIds) {
         if (nearbyCampusIds.isEmpty()) return List.of();
 
         String inSql = String.join(",", Collections.nCopies(nearbyCampusIds.size(), "?"));
 
-        // Seleciona users dos campi vizinhos EXCETO eu mesmo E quem eu já sigo
         String sql = String.format("""
             SELECT * FROM users 
             WHERE campus_id IN (%s) 
@@ -156,9 +151,6 @@ public class UserRepository {
         return jdbc.query(sql, userRowMapper, args.toArray());
     }
 
-    // ... outros métodos ...
-
-    // Listar todos os usuários
     public List<User> findAll() {
         String sql = "SELECT * FROM users";
         return jdbc.query(sql, userRowMapper);
@@ -168,5 +160,4 @@ public class UserRepository {
         String sql = "UPDATE users SET profile_image_url = ? WHERE id = ?";
         jdbc.update(sql, imageUrl, userId);
     }
-
 }

@@ -62,13 +62,10 @@ public class UserService {
         return new UserResponseDTO(user);
     }
 
-    // --- ESSE É O MÉTODO QUE O CONTROLLER TÁ PEDINDO E NÃO ACHAVA ---
     public User getUserEntityById(Long id) {
         return userRepository.findById(id);
     }
-    // ----------------------------------------------------------------
 
-    // Atualizado para retornar lista de DTOs (corrigindo erro de tipo)
     public List<UserResponseDTO> getAllUsers() {
         List<User> users = userRepository.findAll();
         return users.stream()
@@ -76,12 +73,17 @@ public class UserService {
                 .collect(Collectors.toList());
     }
 
-    // Atualizado para aceitar o DTO e o ID (corrigindo erro de argumentos)
     @CacheEvict(value = "users", key = "#id")
     public UserResponseDTO updateUser(Long id, UpdateUserDTO dto) {
         User existingUser = userRepository.findById(id);
         if (existingUser == null) {
             throw new RuntimeException("Usuário não encontrado");
+        }
+
+        if (dto.getUsername() != null && !dto.getUsername().equals(existingUser.getUsername())) {
+            User userWithSameName = userRepository.findByUsername(dto.getUsername());
+            if (userWithSameName != null && !userWithSameName.getId().equals(id)) {
+                throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT, "NOME_OCUPADO");            }
         }
 
         if (dto.getUsername() != null) existingUser.setUsername(dto.getUsername());
@@ -92,16 +94,13 @@ public class UserService {
         return new UserResponseDTO(updatedUser);
     }
 
-    // --- MÉTODO NOVO QUE O CONTROLLER PEDE ---
     @CacheEvict(value = "users", key = "#id")
     public UserResponseDTO updateProfileImage(Long id, String imageUrl) {
         userRepository.updateProfileImage(id, imageUrl);
         User user = userRepository.findById(id);
         return new UserResponseDTO(user);
     }
-    // -----------------------------------------
 
-    @CacheEvict(value = "users", key = "#userId")
     public void updateCampus(Long userId, Long campusId) {
         userRepository.updateCampus(userId, campusId);
     }
@@ -130,13 +129,10 @@ public class UserService {
         int following = followRepository.countFollowing(userId);
         long posts = postRepository.countByUserId(userId);
 
-        // CORREÇÃO DO ERRO DE TIPO (Passo 4)
         return new UserProfileDTO(new UserResponseDTO(user), followers, following, posts);
     }
 
     public boolean isEmailRegistered(String email) {
         return userRepository.findByEmail(email) != null;
     }
-
-
 }
