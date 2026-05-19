@@ -112,8 +112,16 @@ Na raiz do projeto (onde está o `docker-compose.yml`), execute:
 
 ```bash
 docker-compose up -d
+```
 
-Isso iniciará os containers: Postgres (5432), Mongo (27017), Redis (6379) e MinIO (9000).
+Isso iniciará os containers: Postgres (5433), Mongo (27017), Redis (6379) e MinIO (9000).
+
+Se você já tinha subido o Postgres antes com outras credenciais, recrie o container para aplicar os valores atuais:
+
+```bash
+docker compose down -v
+docker compose up -d
+```
 
 Passo 2: Executar o Backend
 
