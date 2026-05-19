@@ -1,20 +1,51 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  Project: IFConnected
+  Scope in this repository: Spring Boot backend only. The README mentions a Next.js frontend,
+  but the frontend is not present here and must not be assumed as part of the writable scope.
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+  Tech stack:
+  - Java 17
+  - Spring Boot 3.2
+  - Maven
+  - PostgreSQL + PostGIS
+  - MongoDB
+  - Redis
+  - MinIO
+  - Liquibase
+  - Spring Security with JWT and Google login
+
+  Brownfield rules:
+  - Treat the existing codebase as the operational source of truth.
+  - Prefer describing current behavior before proposing idealized designs.
+  - Separate exploration artifacts from implementation specs.
+  - Avoid generating system-wide specs in one pass.
+  - Prioritize narrow, capability-focused changes that reduce risk.
+  - Start with /opsx:explore before creating specs or implementing changes.
+
+  Current domain map:
+  - auth
+  - users
+  - campus
+  - posts
+  - events
+  - projects
+  - notifications
+  - regional feed
+
+rules:
+  proposal:
+    - State the backend-only scope explicitly when relevant.
+    - Include a short brownfield impact section.
+    - Call out affected persistence layers when more than one datastore is involved.
+  design:
+    - Document existing operational behavior first, then the intended change.
+    - Include integration points across Postgres, MongoDB, Redis, MinIO, and security when applicable.
+  spec:
+    - Keep specs focused on one capability or risk area.
+    - Do not restate the entire system architecture in every spec.
+    - Identify whether behavior is current-state, target-state, or transitional.
+  tasks:
+    - Break work into small brownfield-safe steps.
+    - Include validation steps that reflect infrastructure dependencies.
